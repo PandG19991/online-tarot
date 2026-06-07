@@ -1,8 +1,11 @@
 'use client';
 
-import { useReducer, useEffect, useMemo, useCallback, useRef, useLayoutEffect } from 'react';
+import { useReducer, useEffect, useMemo, useCallback, useRef } from 'react';
 import gsap from 'gsap';
+import { useGSAP } from '@gsap/react';
 import type { DrawnCard, SpreadType } from '@/types/tarot';
+
+gsap.registerPlugin(useGSAP);
 
 interface FortuneTellerProps {
   drawnCards: DrawnCard[];
@@ -131,26 +134,21 @@ export default function FortuneTeller({
 
   /* ---------- slide in / out ---------- */
 
-  useLayoutEffect(() => {
-    if (!containerRef.current) return;
+  useGSAP(
+    () => {
+      if (!containerRef.current) return;
 
-    gsap.killTweensOf(containerRef.current);
-    const tweens: gsap.core.Tween[] = [];
-
-    if (isVisible) {
-      gsap.set(containerRef.current, { display: 'block' });
-      tweens.push(
+      if (isVisible) {
+        gsap.set(containerRef.current, { display: 'block' });
         gsap.fromTo(
           containerRef.current,
-          { y: 100, opacity: 0 },
-          { y: 0, opacity: 1, duration: 0.8, ease: 'back.out(1.4)' }
-        )
-      );
-    } else {
-      tweens.push(
+          { y: 100, autoAlpha: 0 },
+          { y: 0, autoAlpha: 1, duration: 0.8, ease: 'back.out(1.4)' }
+        );
+      } else {
         gsap.to(containerRef.current, {
           y: 100,
-          opacity: 0,
+          autoAlpha: 0,
           duration: 0.5,
           ease: 'power2.in',
           onComplete: () => {
@@ -158,16 +156,15 @@ export default function FortuneTeller({
               gsap.set(containerRef.current, { display: 'none' });
             }
           },
-        })
-      );
-    }
-
-    return () => {
-      tweens.forEach((t) => t.kill());
-    };
-  }, [isVisible]);
+        });
+      }
+    },
+    { scope: containerRef, dependencies: [isVisible], revertOnUpdate: true }
+  );
 
   /* ---------- typewriter (GSAP delayedCall) ---------- */
+  /* Note: delayedCall recursion lives outside useGSAP context, 
+     so manual cleanup via useEffect remains necessary here. */
 
   useEffect(() => {
     if (!isVisible || !fullText) {
@@ -185,15 +182,14 @@ export default function FortuneTeller({
         index++;
 
         const char = fullText[index - 1];
-        let delay = 0.03; // 30ms default
+        let delay = 0.03;
 
         if ('，。！？；：,.!?;:"'.includes(char)) {
-          delay = 0.12; // 120ms punctuation
+          delay = 0.12;
         }
         if (char === '\n') {
-          delay = 0.3; // 300ms newline
+          delay = 0.3;
         }
-        // Sentence end pause
         if (index < fullText.length && '。！？\n'.includes(fullText[index - 1])) {
           delay = 0.3;
         }
@@ -239,7 +235,7 @@ export default function FortuneTeller({
     <div
       ref={containerRef}
       className="relative w-full z-10"
-      style={{ display: 'none', opacity: 0 }}
+      style={{ display: 'none', visibility: 'hidden' }}
     >
       {/* Gradient backdrop */}
       <div

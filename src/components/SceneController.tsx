@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useCallback, useRef, useLayoutEffect, useEffect } from "react";
+import { useState, useCallback, useRef, useEffect } from "react";
 import gsap from "gsap";
+import { useGSAP } from "@gsap/react";
 import type { Scene, SpreadType, TarotCard, DrawnCard, GameState } from "@/types/tarot";
 import LandingScene from "./LandingScene";
 import SpreadSelector from "./SpreadSelector";
@@ -10,6 +11,8 @@ import CardSpread from "./CardSpread";
 import ReadingResult from "./ReadingResult";
 import FortuneTeller from "./FortuneTeller";
 import ShareCard from "./ShareCard";
+
+gsap.registerPlugin(useGSAP);
 
 /* ============================================================
    Deck & helpers
@@ -239,6 +242,7 @@ export default function SceneController() {
 
   const currentRef = useRef<HTMLDivElement>(null);
   const exitingRef = useRef<HTMLDivElement>(null);
+  const scenesRef = useRef<HTMLDivElement>(null);
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   /* ---------- cleanup on unmount ---------- */
@@ -256,48 +260,44 @@ export default function SceneController() {
     setCurrentScene(next);
   }, [currentScene, exitingScene]);
 
-  useLayoutEffect(() => {
-    if (!exitingScene || !exitingRef.current || !currentRef.current) return;
+  useGSAP(
+    () => {
+      if (!exitingScene || !exitingRef.current || !currentRef.current) return;
 
-    const tl = gsap.timeline({
-      onComplete: () => {
-        if (currentRef.current) {
-          gsap.set(currentRef.current, { clearProps: "opacity,transform,filter" });
-        }
-        setExitingScene(null);
-      },
-    });
+      const tl = gsap.timeline({
+        defaults: { duration: 0.6, ease: "power2.inOut" },
+        onComplete: () => {
+          if (currentRef.current) {
+            gsap.set(currentRef.current, { clearProps: "opacity,transform,filter" });
+          }
+          setExitingScene(null);
+        },
+      });
 
-    tl.to(exitingRef.current, {
-      opacity: 0,
-      scale: 0.95,
-      filter: "blur(4px)",
-      duration: 0.6,
-      ease: "power2.inOut",
-    });
+      tl.to(exitingRef.current, {
+        autoAlpha: 0,
+        scale: 0.95,
+        filter: "blur(4px)",
+      });
 
-    gsap.set(currentRef.current, {
-      opacity: 0,
-      scale: 1.05,
-      filter: "blur(4px)",
-    });
+      gsap.set(currentRef.current, {
+        autoAlpha: 0,
+        scale: 1.05,
+        filter: "blur(4px)",
+      });
 
-    tl.to(
-      currentRef.current,
-      {
-        opacity: 1,
-        scale: 1,
-        filter: "blur(0px)",
-        duration: 0.6,
-        ease: "power2.inOut",
-      },
-      "-=0.3"
-    );
-
-    return () => {
-      tl.kill();
-    };
-  }, [exitingScene]);
+      tl.to(
+        currentRef.current,
+        {
+          autoAlpha: 1,
+          scale: 1,
+          filter: "blur(0px)",
+        },
+        "-=0.3"
+      );
+    },
+    { scope: scenesRef, dependencies: [exitingScene] }
+  );
 
   /* ---------- game actions ---------- */
 
@@ -370,12 +370,10 @@ export default function SceneController() {
 
   /* ---------- auto-transition when all cards revealed ---------- */
 
-  useLayoutEffect(() => {
+  useEffect(() => {
     if (currentScene === "drawing") {
       const total = getSpreadCardCount(gameState.spreadType);
       if (revealedIndices.length >= total && revealedIndices.length > 0) {
-        // Extended delay for three-card spread preview animation:
-        // card rise (0.8s) + preview fade-in (0.8s@0.4s) + user reading time
         const delay = gameState.spreadType === "three" ? 6000 : 1200;
         const timer = setTimeout(() => transitionTo("reading"), delay);
         return () => clearTimeout(timer);
@@ -396,7 +394,7 @@ export default function SceneController() {
   return (
     <div className="relative z-10 flex flex-col min-h-[100dvh]">
       {/* Scene transition layer */}
-      <div className="relative flex-1">
+      <div ref={scenesRef} className="relative flex-1">
         {exitingScene && (
           <div
             ref={exitingRef}

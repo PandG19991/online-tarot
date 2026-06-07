@@ -1,9 +1,12 @@
 'use client';
 
-import { useState, useMemo, useLayoutEffect, useRef, useEffect } from 'react';
+import { useState, useMemo, useRef } from 'react';
 import { gsap } from 'gsap';
+import { useGSAP } from '@gsap/react';
 import type { DrawnCard, SpreadType } from '@/types/tarot';
 import TarotCard from './TarotCard';
+
+gsap.registerPlugin(useGSAP);
 
 interface ReadingResultProps {
   drawnCards: DrawnCard[];
@@ -82,72 +85,71 @@ export default function ReadingResult({
 
   const [displayedIndex, setDisplayedIndex] = useState<number | null>(selectedIndex);
   const detailRef = useRef<HTMLDivElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
   const isAnimating = useRef(false);
-  const exitTweenRef = useRef<gsap.core.Tween | null>(null);
 
-  useEffect(() => {
-    if (selectedIndex === displayedIndex) return;
+  // ── Exit / switch animation ──
+  useGSAP(
+    () => {
+      if (selectedIndex === displayedIndex) return;
 
-    // Kill any stale exit tween before starting new logic
-    exitTweenRef.current?.kill();
-    exitTweenRef.current = null;
+      if (selectedIndex === null) {
+        if (detailRef.current && displayedIndex !== null && !isAnimating.current) {
+          isAnimating.current = true;
+          gsap.to(detailRef.current, {
+            autoAlpha: 0,
+            x: -40,
+            duration: 0.3,
+            ease: 'power2.in',
+            onComplete: () => {
+              setDisplayedIndex(null);
+              isAnimating.current = false;
+            },
+          });
+        }
+        return;
+      }
 
-    if (selectedIndex === null) {
-      if (detailRef.current && displayedIndex !== null && !isAnimating.current) {
+      if (displayedIndex === null) {
+        setDisplayedIndex(selectedIndex);
+        return;
+      }
+
+      if (detailRef.current && !isAnimating.current) {
         isAnimating.current = true;
-        exitTweenRef.current = gsap.to(detailRef.current, {
-          opacity: 0,
+        gsap.to(detailRef.current, {
+          autoAlpha: 0,
           x: -40,
-          duration: 0.3,
+          duration: 0.25,
           ease: 'power2.in',
           onComplete: () => {
-            setDisplayedIndex(null);
+            setDisplayedIndex(selectedIndex);
             isAnimating.current = false;
-            exitTweenRef.current = null;
           },
         });
       }
-      return;
-    }
+    },
+    { scope: containerRef, dependencies: [selectedIndex, displayedIndex] }
+  );
 
-    if (displayedIndex === null) {
-      setDisplayedIndex(selectedIndex);
-      return;
-    }
-
-    if (detailRef.current && !isAnimating.current) {
-      isAnimating.current = true;
-      exitTweenRef.current = gsap.to(detailRef.current, {
-        opacity: 0,
-        x: -40,
-        duration: 0.25,
-        ease: 'power2.in',
-        onComplete: () => {
-          setDisplayedIndex(selectedIndex);
-          isAnimating.current = false;
-          exitTweenRef.current = null;
-        },
-      });
-    }
-  }, [selectedIndex, displayedIndex]);
-
-  useLayoutEffect(() => {
-    if (displayedIndex !== null && detailRef.current) {
-      const tween = gsap.fromTo(
-        detailRef.current,
-        { opacity: 0, x: 40 },
-        { opacity: 1, x: 0, duration: 0.35, ease: 'power2.out' }
-      );
-      return () => {
-        tween.kill();
-      };
-    }
-  }, [displayedIndex]);
+  // ── Enter animation ──
+  useGSAP(
+    () => {
+      if (displayedIndex !== null && detailRef.current) {
+        gsap.fromTo(
+          detailRef.current,
+          { autoAlpha: 0, x: 40 },
+          { autoAlpha: 1, x: 0, duration: 0.35, ease: 'power2.out' }
+        );
+      }
+    },
+    { scope: containerRef, dependencies: [displayedIndex] }
+  );
 
   const selectedCard = displayedIndex !== null ? drawnCards[displayedIndex] : null;
 
   return (
-    <div className="w-full space-y-6">
+    <div ref={containerRef} className="w-full space-y-6">
       {/* Top: Card Overview */}
       <div className="flex flex-wrap justify-center gap-4">
         {drawnCards.map((drawn, index) => (
@@ -178,7 +180,7 @@ export default function ReadingResult({
 
       {/* Middle: Selected Card Detail */}
       {selectedCard && (
-        <div ref={detailRef} className="card-outer">
+        <div ref={detailRef} className="card-outer" style={{ visibility: 'hidden' }}>
           <div className="card-inner p-6 md:p-8">
             <div className="flex flex-col md:flex-row gap-6 items-start">
               {/* Large Card */}

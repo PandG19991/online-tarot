@@ -51,7 +51,7 @@ function findEnclosingHook(node) {
   while (current) {
     if (current.type === 'CallExpression' && current.callee.type === 'Identifier') {
       const name = current.callee.name;
-      if (name === 'useEffect' || name === 'useLayoutEffect') {
+      if (name === 'useEffect' || name === 'useLayoutEffect' || name === 'useGSAP') {
         return current;
       }
     }
@@ -144,7 +144,11 @@ module.exports = {
 
         // Check if inside useEffect/useLayoutEffect with cleanup
         const hook = findEnclosingHook(node);
-        if (hook && hasCleanupReturn(hook)) return;
+        if (hook) {
+          // useGSAP handles cleanup automatically via gsap.context()
+          if (hook.callee.type === 'Identifier' && hook.callee.name === 'useGSAP') return;
+          if (hasCleanupReturn(hook)) return;
+        }
 
         // Determine method name for message
         let method = 'animate';

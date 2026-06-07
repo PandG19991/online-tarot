@@ -1,10 +1,13 @@
 'use client';
 
-import React, { useRef, useLayoutEffect, useEffect, useState } from 'react';
+import React, { useRef, useEffect, useState, useCallback } from 'react';
 import gsap from 'gsap';
+import { useGSAP } from '@gsap/react';
 import TarotCard from './TarotCard';
 import CardBack from './CardBack';
 import { SpreadType, DrawnCard } from '@/types/tarot';
+
+gsap.registerPlugin(useGSAP);
 
 interface CardSpreadProps {
   spreadType: SpreadType;
@@ -75,7 +78,6 @@ function ThreeCardSpread({
   const containerRef = useRef<HTMLDivElement>(null);
   const cardWrapRefs = useRef<(HTMLDivElement | null)[]>([]);
   const previewRef = useRef<HTMLDivElement>(null);
-  const idleTweenRefs = useRef<(gsap.core.Tween | undefined)[]>([]);
   const timelineRefs = useRef<(gsap.core.Timeline | null)[]>([]);
   const [isMobile, setIsMobile] = useState(false);
 
@@ -94,131 +96,109 @@ function ThreeCardSpread({
   const getDrawnCard = (positionIndex: number) =>
     drawnCards.find((d) => d.position === positionIndex);
 
-  // ── Initial stack position: centered, slightly below ──
-  useLayoutEffect(() => {
-    if (!containerRef.current) return;
+  const getOffsets = useCallback(
+    (i: number) => ({
+      x: [isMobile ? -6 : -12, 0, isMobile ? 6 : 12][i],
+      y: [4, 0, 4][i],
+      rotation: [isMobile ? -3 : -6, 0, isMobile ? 3 : 6][i],
+    }),
+    [isMobile]
+  );
 
-    cardWrapRefs.current.forEach((el, i) => {
-      if (!el) return;
-      const isRevealed = revealedIndices.includes(i);
-      if (isRevealed) return; // Don't reset already revealed cards
-
-      const offsets = [
-        { x: isMobile ? -6 : -12, y: 4, rotation: isMobile ? -3 : -6 },
-        { x: 0, y: 0, rotation: 0 },
-        { x: isMobile ? 6 : 12, y: 4, rotation: isMobile ? 3 : 6 },
-      ];
-
-      gsap.set(el, {
-        x: offsets[i].x,
-        y: offsets[i].y + 40, // Start below center
-        rotation: offsets[i].rotation,
-        scale: 1,
+  // ── Initial stack position ──
+  useGSAP(
+    () => {
+      cardWrapRefs.current.forEach((el, i) => {
+        if (!el || revealedIndices.includes(i)) return;
+        const off = getOffsets(i);
+        gsap.set(el, {
+          x: off.x,
+          y: off.y + 40,
+          rotation: off.rotation,
+          scale: 1,
+        });
       });
-    });
-  }, []);
+    },
+    { scope: containerRef, dependencies: [isMobile] }
+  );
 
   // ── Idle breathing for unrevealed cards ──
-  useLayoutEffect(() => {
-    if (allRevealed) {
-      idleTweenRefs.current.forEach((t) => t?.kill());
-      idleTweenRefs.current = [];
-      return;
-    }
-
-    cardWrapRefs.current.forEach((el, i) => {
-      if (!el || revealedIndices.includes(i)) return;
-      const t = gsap.to(el, {
-        y: '+=4',
-        scale: 1.015,
-        duration: 2 + i * 0.2,
-        repeat: -1,
-        yoyo: true,
-        ease: 'sine.inOut',
+  useGSAP(
+    () => {
+      if (allRevealed) return;
+      cardWrapRefs.current.forEach((el, i) => {
+        if (!el || revealedIndices.includes(i)) return;
+        gsap.to(el, {
+          y: '+=4',
+          scale: 1.015,
+          duration: 2 + i * 0.2,
+          repeat: -1,
+          yoyo: true,
+          ease: 'sine.inOut',
+        });
       });
-      idleTweenRefs.current[i] = t;
-    });
+    },
+    { scope: containerRef, dependencies: [allRevealed, revealedIndices], revertOnUpdate: true }
+  );
 
-    return () => {
-      idleTweenRefs.current.forEach((t) => t?.kill());
-    };
-  }, [allRevealed, revealedIndices]);
+  // ── Card reveal animation: draw up → place down ──
+  useGSAP(
+    () => {
+      const gap = isMobile ? 12 : 28;
+      const cardWidth = dims.w;
+      const spreadDistance = cardWidth + gap;
 
-  // ── Card reveal animation: draw up → (flip) → place down ──
-  useLayoutEffect(() => {
-    if (!containerRef.current) return;
+      cardWrapRefs.current.forEach((el, i) => {
+        if (!el) return;
+        const isRevealed = revealedIndices.includes(i);
+        const wasRevealedBefore = timelineRefs.current[i] !== null;
 
-    const gap = isMobile ? 12 : 28;
-    const cardWidth = dims.w;
-    const spreadDistance = cardWidth + gap;
+        if (!isRevealed || wasRevealedBefore) return;
 
-    cardWrapRefs.current.forEach((el, i) => {
-      if (!el) return;
-      const isRevealed = revealedIndices.includes(i);
-      const wasRevealedBefore = timelineRefs.current[i] !== null;
+        gsap.killTweensOf(el);
 
-      if (!isRevealed) return;
-      if (wasRevealedBefore) return; // Already animated
+        const targetX = (i - 1) * spreadDistance;
+        const targetRotation = (i - 1) * (isMobile ? 1 : 2);
 
-      // Kill idle tween
-      if (idleTweenRefs.current[i]) {
-        idleTweenRefs.current[i].kill();
-        idleTweenRefs.current[i] = undefined;
-      }
+        const tl = gsap.timeline({
+          defaults: { duration: 0.5, ease: 'power2.out' },
+        });
 
-      const targetX = (i - 1) * spreadDistance;
-      const targetRotation = (i - 1) * (isMobile ? 1 : 2);
+        // Phase 1: Draw up
+        tl.to(el, { y: -40, scale: 1.05, duration: 0.35 });
 
-      // Ritual: draw up → hold → place down to spread position
-      const tl = gsap.timeline();
+        // Phase 2: Place down (overlap with flip handled by TarotCard)
+        tl.to(
+          el,
+          {
+            x: targetX,
+            y: 30,
+            rotation: targetRotation,
+            scale: 1,
+            duration: 0.9,
+            ease: 'power3.out',
+          },
+          '<0.1'
+        );
 
-      // Phase 1: Draw up (like pulling from deck)
-      tl.to(el, {
-        y: -40,
-        scale: 1.05,
-        duration: 0.35,
-        ease: 'power2.out',
+        timelineRefs.current[i] = tl;
       });
-
-      // Phase 2: Place down to final horizontal position
-      // Overlaps with flip animation (TarotCard handles rotateY internally)
-      tl.to(
-        el,
-        {
-          x: targetX,
-          y: 30, // Final position slightly below center
-          rotation: targetRotation,
-          scale: 1,
-          duration: 0.9,
-          ease: 'power3.out',
-        },
-        '-=0.1'
-      );
-
-      timelineRefs.current[i] = tl;
-    });
-
-    return () => {
-      timelineRefs.current.forEach((tl) => tl?.kill());
-    };
-  }, [revealedIndices, isMobile, dims.w]);
+    },
+    { scope: containerRef, dependencies: [revealedIndices, isMobile, dims.w] }
+  );
 
   // ── All revealed: preview panel fades in ──
-  useLayoutEffect(() => {
-    if (!allRevealed || !previewRef.current) return;
-
-    const tl = gsap.timeline();
-    tl.fromTo(
-      previewRef.current,
-      { opacity: 0, y: 20 },
-      { opacity: 1, y: 0, duration: 1.0, ease: 'power2.out' },
-      0.5
-    );
-
-    return () => {
-      tl.kill();
-    };
-  }, [allRevealed]);
+  useGSAP(
+    () => {
+      if (!allRevealed || !previewRef.current) return;
+      gsap.fromTo(
+        previewRef.current,
+        { autoAlpha: 0, y: 20 },
+        { autoAlpha: 1, y: 0, duration: 1.0, ease: 'power2.out', delay: 0.5 }
+      );
+    },
+    { scope: containerRef, dependencies: [allRevealed] }
+  );
 
   return (
     <div className="flex flex-col items-center w-full">
@@ -262,6 +242,7 @@ function ThreeCardSpread({
                 marginTop: -dims.h / 2,
                 zIndex: isRevealed ? 5 + i : 20 - i,
                 cursor: isRevealed ? 'default' : 'pointer',
+                willChange: 'transform, opacity',
               }}
             >
               {drawn ? (
@@ -303,7 +284,7 @@ function ThreeCardSpread({
         <div
           ref={previewRef}
           className="mt-6 w-full max-w-md mx-auto text-center px-4"
-          style={{ opacity: 0 }}
+          style={{ visibility: 'hidden' }}
         >
           <div
             className="rounded-2xl p-5 sm:p-6"
