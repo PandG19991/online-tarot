@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 import { toPng } from 'html-to-image';
 import type { DrawnCard, SpreadType } from '@/types/tarot';
 
@@ -30,6 +30,13 @@ function generateShareSummary(drawnCards: DrawnCard[], spreadType: SpreadType): 
 }
 
 export default function ShareCard({ drawnCards, spreadType }: ShareCardProps) {
+  const copyTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (copyTimeoutRef.current) clearTimeout(copyTimeoutRef.current);
+    };
+  }, []);
   const [isGenerating, setIsGenerating] = useState(false);
   const [copied, setCopied] = useState(false);
   const exportRef = useRef<HTMLDivElement>(null);
@@ -58,7 +65,8 @@ export default function ShareCard({ drawnCards, spreadType }: ShareCardProps) {
     const summary = generateShareSummary(drawnCards, spreadType);
     navigator.clipboard.writeText(summary).then(() => {
       setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
+      if (copyTimeoutRef.current) clearTimeout(copyTimeoutRef.current);
+      copyTimeoutRef.current = setTimeout(() => setCopied(false), 2000);
     });
   }, [drawnCards, spreadType]);
 

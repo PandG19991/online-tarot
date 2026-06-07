@@ -83,6 +83,7 @@ export default function ReadingResult({
   const [displayedIndex, setDisplayedIndex] = useState<number | null>(selectedIndex);
   const detailRef = useRef<HTMLDivElement>(null);
   const isAnimating = useRef(false);
+  const exitTweenRef = useRef<gsap.core.Tween | null>(null);
 
   useEffect(() => {
     if (selectedIndex === displayedIndex) return;
@@ -90,7 +91,8 @@ export default function ReadingResult({
     if (selectedIndex === null) {
       if (detailRef.current && !isAnimating.current) {
         isAnimating.current = true;
-        gsap.to(detailRef.current, {
+        exitTweenRef.current?.kill();
+        exitTweenRef.current = gsap.to(detailRef.current, {
           opacity: 0,
           x: -40,
           duration: 0.3,
@@ -98,6 +100,7 @@ export default function ReadingResult({
           onComplete: () => {
             setDisplayedIndex(null);
             isAnimating.current = false;
+            exitTweenRef.current = null;
           },
         });
       }
@@ -111,7 +114,8 @@ export default function ReadingResult({
 
     if (detailRef.current && !isAnimating.current) {
       isAnimating.current = true;
-      gsap.to(detailRef.current, {
+      exitTweenRef.current?.kill();
+      exitTweenRef.current = gsap.to(detailRef.current, {
         opacity: 0,
         x: -40,
         duration: 0.25,
@@ -119,18 +123,26 @@ export default function ReadingResult({
         onComplete: () => {
           setDisplayedIndex(selectedIndex);
           isAnimating.current = false;
+          exitTweenRef.current = null;
         },
       });
     }
+
+    return () => {
+      exitTweenRef.current?.kill();
+    };
   }, [selectedIndex, displayedIndex]);
 
   useLayoutEffect(() => {
     if (displayedIndex !== null && detailRef.current) {
-      gsap.fromTo(
+      const tween = gsap.fromTo(
         detailRef.current,
         { opacity: 0, x: 40 },
         { opacity: 1, x: 0, duration: 0.35, ease: 'power2.out' }
       );
+      return () => {
+        tween.kill();
+      };
     }
   }, [displayedIndex]);
 

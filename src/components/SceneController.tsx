@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useRef, useLayoutEffect } from "react";
+import { useState, useCallback, useRef, useLayoutEffect, useEffect } from "react";
 import gsap from "gsap";
 import type { Scene, SpreadType, TarotCard, DrawnCard, GameState } from "@/types/tarot";
 import LandingScene from "./LandingScene";
@@ -220,6 +220,13 @@ export default function SceneController() {
   const exitingRef = useRef<HTMLDivElement>(null);
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  /* ---------- cleanup on unmount ---------- */
+  useEffect(() => {
+    return () => {
+      if (timeoutRef.current) clearTimeout(timeoutRef.current);
+    };
+  }, []);
+
   /* ---------- transition engine ---------- */
 
   const transitionTo = useCallback((next: Scene) => {
@@ -274,6 +281,7 @@ export default function SceneController() {
   /* ---------- game actions ---------- */
 
   const selectSpread = useCallback((spreadType: SpreadType) => {
+    if (timeoutRef.current) clearTimeout(timeoutRef.current);
     const deck = shuffleDeck(createMajorArcanaDeck());
     transitionTo("shuffling");
     setGameState((prev) => ({
@@ -307,6 +315,7 @@ export default function SceneController() {
         drawnCards: drawn,
         selectedCardIndex: null,
       }));
+      transitionTo("drawing");
     }, 3000);
   }, []);
 
@@ -374,7 +383,7 @@ export default function SceneController() {
         )}
         <div
           ref={currentRef}
-          className="absolute inset-0"
+          className={`absolute inset-0 ${exitingScene ? "pointer-events-none" : ""}`}
           style={{ opacity: exitingScene ? 0 : 1 }}
         >
           <SceneRenderer scene={currentScene} {...sharedRendererProps} />
