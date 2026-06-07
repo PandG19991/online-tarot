@@ -138,17 +138,24 @@ function SceneRenderer({
         </div>
       );
 
-    case "drawing":
+    case "drawing": {
+      const totalCards = getSpreadCardCount(gameState.spreadType);
+      const allRevealed = revealedIndices.length >= totalCards && revealedIndices.length > 0;
+      const isThree = gameState.spreadType === "three";
+
       return (
         <div className="flex flex-col items-center justify-center min-h-full px-6 py-20">
+          {/* Title — fades out when all revealed (three spread) */}
           <h2
-            className="text-2xl sm:text-3xl font-bold text-white mb-2"
+            className={`text-2xl sm:text-3xl font-bold text-white mb-2 transition-opacity duration-700 ${isThree && allRevealed ? 'opacity-0' : 'opacity-100'}`}
             style={{ fontFamily: "var(--font-heading)" }}
           >
             抽取塔罗牌
           </h2>
-          <p className="text-[var(--text-muted)] mb-10 text-center">
-            点击牌背逐张翻开，共需翻开 {getSpreadCardCount(gameState.spreadType)} 张牌
+          <p
+            className={`text-[var(--text-muted)] mb-10 text-center transition-opacity duration-700 ${isThree && allRevealed ? 'opacity-0' : 'opacity-100'}`}
+          >
+            点击牌背逐张翻开，共需翻开 {totalCards} 张牌
           </p>
           <CardSpread
             spreadType={gameState.spreadType}
@@ -157,11 +164,15 @@ function SceneRenderer({
             selectedIndex={gameState.selectedCardIndex}
             onCardClick={onRevealCard}
           />
-          <p className="mt-8 text-[var(--text-muted)] text-sm">
-            已翻开 {revealedIndices.length} / {getSpreadCardCount(gameState.spreadType)} 张
-          </p>
+          {/* Counter — hidden for three spread (shown inside CardSpread) */}
+          {(!isThree || !allRevealed) && (
+            <p className="mt-8 text-[var(--text-muted)] text-sm">
+              已翻开 {revealedIndices.length} / {totalCards} 张
+            </p>
+          )}
         </div>
       );
+    }
 
     case "reading":
       return (
@@ -353,7 +364,10 @@ export default function SceneController() {
     if (currentScene === "drawing") {
       const total = getSpreadCardCount(gameState.spreadType);
       if (revealedIndices.length >= total && revealedIndices.length > 0) {
-        const timer = setTimeout(() => transitionTo("reading"), 800);
+        // Extended delay for three-card spread preview animation:
+        // card rise (0.8s) + preview fade-in (0.8s@0.4s) + user reading time
+        const delay = gameState.spreadType === "three" ? 4500 : 1200;
+        const timer = setTimeout(() => transitionTo("reading"), delay);
         return () => clearTimeout(timer);
       }
     }
