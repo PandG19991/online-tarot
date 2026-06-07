@@ -165,7 +165,7 @@ export default function ReadingResult({
               isReversed={drawn.isReversed}
               isRevealed={true}
               isSelected={selectedIndex === index}
-              size="sm"
+              size="md"
             />
             <span
               className={`text-[10px] tracking-wider uppercase ${

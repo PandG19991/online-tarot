@@ -176,31 +176,41 @@ function SceneRenderer({
 
     case "reading":
       return (
-        <div className="flex flex-col items-center min-h-full px-6 py-20 max-w-4xl mx-auto w-full pb-[320px]">
-          <h2
-            className="text-2xl sm:text-3xl font-bold text-white mb-2"
-            style={{ fontFamily: "var(--font-heading)" }}
-          >
-            塔罗解读
-          </h2>
-          <p className="text-[var(--text-muted)] mb-8 text-center">
-            点击单张牌查看详细解读
-          </p>
-          <ReadingResult
-            drawnCards={gameState.drawnCards}
-            spreadType={gameState.spreadType}
-            onCardSelect={onSelectCard}
-            selectedIndex={gameState.selectedCardIndex}
-          />
-          <div className="mt-10 w-full">
-            <ShareCard
+        <div className="flex flex-col min-h-full">
+          {/* Scrollable content area */}
+          <div className="flex-1 flex flex-col items-center px-6 py-20 max-w-4xl mx-auto w-full">
+            <h2
+              className="text-2xl sm:text-3xl font-bold text-white mb-2"
+              style={{ fontFamily: "var(--font-heading)" }}
+            >
+              塔罗解读
+            </h2>
+            <p className="text-[var(--text-muted)] mb-8 text-center">
+              点击单张牌查看详细解读
+            </p>
+            <ReadingResult
               drawnCards={gameState.drawnCards}
               spreadType={gameState.spreadType}
+              onCardSelect={onSelectCard}
+              selectedIndex={gameState.selectedCardIndex}
             />
+            <div className="mt-10 w-full">
+              <ShareCard
+                drawnCards={gameState.drawnCards}
+                spreadType={gameState.spreadType}
+              />
+            </div>
+            <button onClick={onReset} className="mt-10 island-button">
+              再次占卜
+            </button>
           </div>
-          <button onClick={onReset} className="mt-10 island-button">
-            再次占卜
-          </button>
+
+          {/* FortuneTeller in document flow — no overlay */}
+          <FortuneTeller
+            drawnCards={gameState.drawnCards}
+            spreadType={gameState.spreadType}
+            isVisible={true}
+          />
         </div>
       );
 
@@ -366,7 +376,7 @@ export default function SceneController() {
       if (revealedIndices.length >= total && revealedIndices.length > 0) {
         // Extended delay for three-card spread preview animation:
         // card rise (0.8s) + preview fade-in (0.8s@0.4s) + user reading time
-        const delay = gameState.spreadType === "three" ? 4500 : 1200;
+        const delay = gameState.spreadType === "three" ? 6000 : 1200;
         const timer = setTimeout(() => transitionTo("reading"), delay);
         return () => clearTimeout(timer);
       }
@@ -386,7 +396,7 @@ export default function SceneController() {
   return (
     <div className="relative z-10 flex flex-col min-h-[100dvh]">
       {/* Scene transition layer */}
-      <div className="relative flex-1 overflow-hidden">
+      <div className="relative flex-1">
         {exitingScene && (
           <div
             ref={exitingRef}
@@ -403,13 +413,6 @@ export default function SceneController() {
           <SceneRenderer scene={currentScene} {...sharedRendererProps} />
         </div>
       </div>
-
-      {/* FortuneTeller overlay — fixed at bottom */}
-      <FortuneTeller
-        drawnCards={gameState.drawnCards}
-        spreadType={gameState.spreadType}
-        isVisible={currentScene === "reading"}
-      />
     </div>
   );
 }

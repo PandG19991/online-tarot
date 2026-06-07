@@ -238,7 +238,7 @@ export default function FortuneTeller({
   return (
     <div
       ref={containerRef}
-      className="fixed bottom-0 left-0 right-0 z-50"
+      className="relative w-full z-10"
       style={{ display: 'none', opacity: 0 }}
     >
       {/* Gradient backdrop */}

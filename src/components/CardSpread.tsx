@@ -190,17 +190,17 @@ function ThreeCardSpread({
     // Cards container rises
     tl.to(containerRef.current, {
       y: isMobile ? -30 : -50,
-      duration: 0.8,
+      duration: 1.2,
       ease: 'power2.out',
-    }, 0);
+    }, 0.2);
 
     // Preview panel fades in
     if (previewRef.current) {
       tl.fromTo(
         previewRef.current,
         { opacity: 0, y: 30 },
-        { opacity: 1, y: 0, duration: 0.8, ease: 'power2.out' },
-        0.4
+        { opacity: 1, y: 0, duration: 1.0, ease: 'power2.out' },
+        0.8
       );
     }
 
