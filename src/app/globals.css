@@ -94,7 +94,7 @@
 .blob-purple {
   width: 600px;
   height: 600px;
-  background-color: rgba(124, 58, 237, 0.6);
+  background-color: rgba(139, 92, 246, 0.55);
   top: -10%;
   left: -5%;
   animation: fluidOrbit1 55s infinite alternate ease-in-out;
@@ -103,7 +103,7 @@
 .blob-amber {
   width: 700px;
   height: 700px;
-  background-color: rgba(201, 162, 39, 0.5);
+  background-color: rgba(234, 179, 8, 0.4);
   bottom: -15%;
   right: -5%;
   animation: fluidOrbit2 70s infinite alternate ease-in-out;
@@ -112,7 +112,7 @@
 .blob-indigo {
   width: 500px;
   height: 500px;
-  background-color: rgba(79, 70, 229, 0.4);
+  background-color: rgba(99, 102, 241, 0.4);
   top: 35%;
   left: 40%;
   animation: fluidOrbit3 60s infinite alternate ease-in-out;
@@ -121,7 +121,7 @@
 .blob-teal {
   width: 550px;
   height: 550px;
-  background-color: rgba(45, 212, 191, 0.25);
+  background-color: rgba(45, 212, 191, 0.3);
   bottom: 20%;
   left: -10%;
   animation: fluidOrbit1 48s infinite alternate-reverse ease-in-out;
@@ -161,7 +161,7 @@
     linear-gradient(rgba(255, 255, 255, 0) 50%, rgba(0, 0, 0, 0.08) 50%),
     radial-gradient(circle, rgba(255, 255, 255, 0.02) 0%, rgba(0, 0, 0, 0.15) 100%);
   background-size: 100% 4px, 100% 100%;
-  opacity: 0.35;
+  opacity: 0.5;
 }
 
 /* ============================================================
