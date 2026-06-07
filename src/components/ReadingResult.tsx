@@ -88,10 +88,13 @@ export default function ReadingResult({
   useEffect(() => {
     if (selectedIndex === displayedIndex) return;
 
+    // Kill any stale exit tween before starting new logic
+    exitTweenRef.current?.kill();
+    exitTweenRef.current = null;
+
     if (selectedIndex === null) {
-      if (detailRef.current && !isAnimating.current) {
+      if (detailRef.current && displayedIndex !== null && !isAnimating.current) {
         isAnimating.current = true;
-        exitTweenRef.current?.kill();
         exitTweenRef.current = gsap.to(detailRef.current, {
           opacity: 0,
           x: -40,
@@ -114,7 +117,6 @@ export default function ReadingResult({
 
     if (detailRef.current && !isAnimating.current) {
       isAnimating.current = true;
-      exitTweenRef.current?.kill();
       exitTweenRef.current = gsap.to(detailRef.current, {
         opacity: 0,
         x: -40,
@@ -127,10 +129,6 @@ export default function ReadingResult({
         },
       });
     }
-
-    return () => {
-      exitTweenRef.current?.kill();
-    };
   }, [selectedIndex, displayedIndex]);
 
   useLayoutEffect(() => {

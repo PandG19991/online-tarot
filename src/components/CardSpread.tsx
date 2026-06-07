@@ -21,16 +21,16 @@ const defaultLabels: Record<SpreadType, string[]> = {
 };
 
 const celticLayout = [
-  { left: '28%', top: '30%' },              // 0 现状
-  { left: '28%', top: '30%', rotate: 90 },  // 1 挑战
-  { left: '28%', top: '2%' },               // 2 意识
-  { left: '28%', top: '58%' },              // 3 基础
-  { left: '4%', top: '30%' },               // 4 过去
-  { left: '52%', top: '30%' },              // 5 未来
-  { left: '76%', top: '6%' },               // 6 自我
-  { left: '76%', top: '22%' },              // 7 环境
-  { left: '76%', top: '38%' },              // 8 希望/恐惧
-  { left: '76%', top: '54%' },              // 9 结果
+  { left: '28%', top: '30%' },
+  { left: '28%', top: '30%', rotate: 90 },
+  { left: '28%', top: '2%' },
+  { left: '28%', top: '58%' },
+  { left: '4%', top: '30%' },
+  { left: '52%', top: '30%' },
+  { left: '76%', top: '6%' },
+  { left: '76%', top: '22%' },
+  { left: '76%', top: '38%' },
+  { left: '76%', top: '54%' },
 ];
 
 const sizeMap = {
@@ -56,7 +56,7 @@ function PillLabel({ children }: { children: React.ReactNode }) {
 }
 
 /* ============================================================
-   Three Card Spread — Fan stack → Flip & spread → Rise & reveal
+   Three Card Spread — Ritual: draw up → flip → place down
    ============================================================ */
 
 function ThreeCardSpread({
@@ -76,6 +76,7 @@ function ThreeCardSpread({
   const cardWrapRefs = useRef<(HTMLDivElement | null)[]>([]);
   const previewRef = useRef<HTMLDivElement>(null);
   const idleTweenRefs = useRef<(gsap.core.Tween | undefined)[]>([]);
+  const timelineRefs = useRef<(gsap.core.Timeline | null)[]>([]);
   const [isMobile, setIsMobile] = useState(false);
 
   const cardSize: 'sm' | 'md' = isMobile ? 'sm' : 'md';
@@ -93,7 +94,31 @@ function ThreeCardSpread({
   const getDrawnCard = (positionIndex: number) =>
     drawnCards.find((d) => d.position === positionIndex);
 
-  // ── Idle breathing animation for stacked cards ──
+  // ── Initial stack position: centered, slightly below ──
+  useLayoutEffect(() => {
+    if (!containerRef.current) return;
+
+    cardWrapRefs.current.forEach((el, i) => {
+      if (!el) return;
+      const isRevealed = revealedIndices.includes(i);
+      if (isRevealed) return; // Don't reset already revealed cards
+
+      const offsets = [
+        { x: isMobile ? -6 : -12, y: 4, rotation: isMobile ? -3 : -6 },
+        { x: 0, y: 0, rotation: 0 },
+        { x: isMobile ? 6 : 12, y: 4, rotation: isMobile ? 3 : 6 },
+      ];
+
+      gsap.set(el, {
+        x: offsets[i].x,
+        y: offsets[i].y + 40, // Start below center
+        rotation: offsets[i].rotation,
+        scale: 1,
+      });
+    });
+  }, []);
+
+  // ── Idle breathing for unrevealed cards ──
   useLayoutEffect(() => {
     if (allRevealed) {
       idleTweenRefs.current.forEach((t) => t?.kill());
@@ -104,9 +129,9 @@ function ThreeCardSpread({
     cardWrapRefs.current.forEach((el, i) => {
       if (!el || revealedIndices.includes(i)) return;
       const t = gsap.to(el, {
-        y: '+=3',
-        scale: 1.01,
-        duration: 1.8 + i * 0.15,
+        y: '+=4',
+        scale: 1.015,
+        duration: 2 + i * 0.2,
         repeat: -1,
         yoyo: true,
         ease: 'sine.inOut',
@@ -119,101 +144,87 @@ function ThreeCardSpread({
     };
   }, [allRevealed, revealedIndices]);
 
-  // ── Card position animation: stack ↔ spread ──
+  // ── Card reveal animation: draw up → (flip) → place down ──
   useLayoutEffect(() => {
-    const gap = isMobile ? 16 : 32;
+    if (!containerRef.current) return;
+
+    const gap = isMobile ? 12 : 28;
     const cardWidth = dims.w;
     const spreadDistance = cardWidth + gap;
-
-    // Fan-shaped stack offsets (visible & clickable)
-    const stackOffsets = [
-      { x: isMobile ? -10 : -30, y: isMobile ? 6 : 10, rotation: isMobile ? -5 : -10 },
-      { x: 0, y: 0, rotation: 0 },
-      { x: isMobile ? 10 : 30, y: isMobile ? 6 : 10, rotation: isMobile ? 5 : 10 },
-    ];
-
-    const tweens: gsap.core.Tween[] = [];
 
     cardWrapRefs.current.forEach((el, i) => {
       if (!el) return;
       const isRevealed = revealedIndices.includes(i);
+      const wasRevealedBefore = timelineRefs.current[i] !== null;
 
-      // Kill idle tween for this card when revealed
-      if (isRevealed && idleTweenRefs.current[i]) {
+      if (!isRevealed) return;
+      if (wasRevealedBefore) return; // Already animated
+
+      // Kill idle tween
+      if (idleTweenRefs.current[i]) {
         idleTweenRefs.current[i].kill();
         idleTweenRefs.current[i] = undefined;
       }
 
-      if (isRevealed) {
-        // Spread to horizontal positions
-        const targetX = (i - 1) * spreadDistance;
-        const targetY = 0;
-        const targetRotation = (i - 1) * (isMobile ? 1 : 2);
+      const targetX = (i - 1) * spreadDistance;
+      const targetRotation = (i - 1) * (isMobile ? 1 : 2);
 
-        tweens.push(
-          gsap.to(el, {
-            x: targetX,
-            y: targetY,
-            rotation: targetRotation,
-            scale: 1,
-            duration: 0.7,
-            ease: 'power3.out',
-            delay: 0.05,
-          })
-        );
-      } else {
-        // Stack with fan offset
-        tweens.push(
-          gsap.to(el, {
-            x: stackOffsets[i].x,
-            y: stackOffsets[i].y,
-            rotation: stackOffsets[i].rotation,
-            scale: 1,
-            duration: 0.4,
-            ease: 'power2.out',
-          })
-        );
-      }
+      // Ritual: draw up → hold → place down to spread position
+      const tl = gsap.timeline();
+
+      // Phase 1: Draw up (like pulling from deck)
+      tl.to(el, {
+        y: -40,
+        scale: 1.05,
+        duration: 0.35,
+        ease: 'power2.out',
+      });
+
+      // Phase 2: Place down to final horizontal position
+      // Overlaps with flip animation (TarotCard handles rotateY internally)
+      tl.to(
+        el,
+        {
+          x: targetX,
+          y: 30, // Final position slightly below center
+          rotation: targetRotation,
+          scale: 1,
+          duration: 0.9,
+          ease: 'power3.out',
+        },
+        '-=0.1'
+      );
+
+      timelineRefs.current[i] = tl;
     });
 
     return () => {
-      tweens.forEach((t) => t.kill());
+      timelineRefs.current.forEach((tl) => tl?.kill());
     };
   }, [revealedIndices, isMobile, dims.w]);
 
-  // ── All revealed: container rises + preview fades in ──
+  // ── All revealed: preview panel fades in ──
   useLayoutEffect(() => {
-    if (!allRevealed || !containerRef.current) return;
+    if (!allRevealed || !previewRef.current) return;
 
     const tl = gsap.timeline();
-
-    // Cards container rises
-    tl.to(containerRef.current, {
-      y: isMobile ? -30 : -50,
-      duration: 1.2,
-      ease: 'power2.out',
-    }, 0.2);
-
-    // Preview panel fades in
-    if (previewRef.current) {
-      tl.fromTo(
-        previewRef.current,
-        { opacity: 0, y: 30 },
-        { opacity: 1, y: 0, duration: 1.0, ease: 'power2.out' },
-        0.8
-      );
-    }
+    tl.fromTo(
+      previewRef.current,
+      { opacity: 0, y: 20 },
+      { opacity: 1, y: 0, duration: 1.0, ease: 'power2.out' },
+      0.5
+    );
 
     return () => {
       tl.kill();
     };
-  }, [allRevealed, isMobile]);
+  }, [allRevealed]);
 
   return (
     <div className="flex flex-col items-center w-full">
       {/* Title hint */}
       {!allRevealed && (
-        <p className="text-sm text-[var(--text-muted)] mb-6 text-center animate-pulse">
+        <p className="text-sm text-[var(--text-muted)] mb-8 text-center animate-pulse">
           {revealedIndices.length === 0
             ? '✦ 点击牌背，翻开你的第一张牌'
             : revealedIndices.length === 1
@@ -228,8 +239,8 @@ function ThreeCardSpread({
         className="relative mx-auto"
         style={{
           width: '100%',
-          maxWidth: isMobile ? 360 : 700,
-          height: dims.h + (isMobile ? 50 : 80),
+          maxWidth: isMobile ? 340 : 660,
+          height: dims.h + (isMobile ? 60 : 100),
         }}
       >
         {[0, 1, 2].map((i) => {
@@ -249,7 +260,7 @@ function ThreeCardSpread({
                 width: dims.w,
                 marginLeft: -dims.w / 2,
                 marginTop: -dims.h / 2,
-                zIndex: isRevealed ? 10 + i : 3 - i,
+                zIndex: isRevealed ? 5 + i : 20 - i,
                 cursor: isRevealed ? 'default' : 'pointer',
               }}
             >
@@ -268,9 +279,9 @@ function ThreeCardSpread({
                 <CardBack size={cardSize} />
               )}
 
-              {/* Position label — shows after reveal */}
+              {/* Position label */}
               <div
-                className="mt-3 transition-opacity duration-500"
+                className="mt-3 transition-opacity duration-700"
                 style={{ opacity: isRevealed ? 1 : 0 }}
               >
                 <PillLabel>{drawn?.positionLabel ?? labels[i]}</PillLabel>
@@ -280,7 +291,7 @@ function ThreeCardSpread({
         })}
       </div>
 
-      {/* Reveal counter */}
+      {/* Counter */}
       {!allRevealed && (
         <p className="mt-6 text-[var(--text-muted)] text-sm">
           已翻开 {revealedIndices.length} / 3 张
@@ -291,7 +302,7 @@ function ThreeCardSpread({
       {allRevealed && (
         <div
           ref={previewRef}
-          className="mt-4 w-full max-w-md mx-auto text-center px-4"
+          className="mt-6 w-full max-w-md mx-auto text-center px-4"
           style={{ opacity: 0 }}
         >
           <div
@@ -402,7 +413,7 @@ export default function CardSpread({
     );
   }
 
-  // ── Three cards — use animated spread ──
+  // ── Three cards — ritual spread ──
   if (spreadType === 'three') {
     return (
       <ThreeCardSpread
