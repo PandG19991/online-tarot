@@ -80,16 +80,15 @@
   z-index: -3;
   overflow: hidden;
   background-color: #06050a;
-  filter: blur(120px);
-  mix-blend-mode: screen;
-  opacity: 0.7;
+  opacity: 1;
 }
 
 .fluid-blob {
   position: absolute;
   border-radius: 50%;
+  filter: blur(80px);
   mix-blend-mode: screen;
-  opacity: 0.25;
+  opacity: 0.45;
 }
 
 .blob-purple {
