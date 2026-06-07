@@ -199,6 +199,19 @@ export default function SpreadSelector({ onSelect, selected }: SpreadSelectorPro
                     />
                   )}
 
+                  {/* Module Label */}
+                  <div
+                    className="relative mb-3"
+                    style={{
+                      fontFamily: "var(--font-mono)",
+                      fontSize: "0.6rem",
+                      color: isSelected ? "var(--gold)" : "var(--text-muted)",
+                      letterSpacing: "0.05em",
+                    }}
+                  >
+                    [MODULE_0{index + 1}] {spread.type.toUpperCase()}.SYS
+                  </div>
+
                   {/* Icon 容器 */}
                   <div
                     className={`

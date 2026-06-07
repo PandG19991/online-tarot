@@ -28,10 +28,16 @@
     /* Font families */
     --font-heading: var(--font-playfair), var(--font-noto-serif-sc), "Noto Serif SC", serif;
     --font-body: var(--font-jakarta), "Plus Jakarta Sans", system-ui, sans-serif;
-    --font-mono: "Geist Mono", "SF Mono", ui-monospace, monospace;
+    --font-mono: "Fira Code", "Geist Mono", "SF Mono", ui-monospace, monospace;
 
     /* Legacy neutral tokens (minimal, for compatibility) */
     --border-subtle: rgba(201, 162, 39, 0.15);
+
+    /* ── VAKH-style accent tokens ── */
+    --accent-cyan: #38bdf8;
+    --accent-teal: #2dd4bf;
+    --accent-orange: #fb923c;
+    --accent-blue: #60a5fa;
   }
 
   * {
@@ -58,6 +64,122 @@
     font-weight: 400;
     letter-spacing: 0.02em;
   }
+}
+
+/* ============================================================
+   VAKH-style Fluid Mesh Background
+   Pure CSS: blur + mix-blend-mode + animated blobs
+   ============================================================ */
+
+.fluid-mesh-bg {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  z-index: -3;
+  overflow: hidden;
+  background-color: #06050a;
+  filter: blur(120px);
+  mix-blend-mode: screen;
+  opacity: 0.7;
+}
+
+.fluid-blob {
+  position: absolute;
+  border-radius: 50%;
+  mix-blend-mode: screen;
+  opacity: 0.25;
+}
+
+.blob-purple {
+  width: 600px;
+  height: 600px;
+  background-color: rgba(124, 58, 237, 0.6);
+  top: -10%;
+  left: -5%;
+  animation: fluidOrbit1 55s infinite alternate ease-in-out;
+}
+
+.blob-amber {
+  width: 700px;
+  height: 700px;
+  background-color: rgba(201, 162, 39, 0.5);
+  bottom: -15%;
+  right: -5%;
+  animation: fluidOrbit2 70s infinite alternate ease-in-out;
+}
+
+.blob-indigo {
+  width: 500px;
+  height: 500px;
+  background-color: rgba(79, 70, 229, 0.4);
+  top: 35%;
+  left: 40%;
+  animation: fluidOrbit3 60s infinite alternate ease-in-out;
+}
+
+.blob-teal {
+  width: 550px;
+  height: 550px;
+  background-color: rgba(45, 212, 191, 0.25);
+  bottom: 20%;
+  left: -10%;
+  animation: fluidOrbit1 48s infinite alternate-reverse ease-in-out;
+}
+
+@keyframes fluidOrbit1 {
+  0% { transform: translate(0, 0) scale(1) rotate(0deg); }
+  50% { transform: translate(100px, 80px) scale(1.1) rotate(180deg); }
+  100% { transform: translate(-40px, -30px) scale(0.9) rotate(360deg); }
+}
+
+@keyframes fluidOrbit2 {
+  0% { transform: translate(0, 0) scale(1) rotate(0deg); }
+  50% { transform: translate(-120px, -100px) scale(0.95) rotate(-120deg); }
+  100% { transform: translate(50px, 70px) scale(1.05) rotate(-240deg); }
+}
+
+@keyframes fluidOrbit3 {
+  0% { transform: translate(0, 0) scale(1) rotate(0deg); }
+  50% { transform: translate(-80px, 100px) scale(1.15) rotate(150deg); }
+  100% { transform: translate(70px, -50px) scale(0.85) rotate(300deg); }
+}
+
+/* ============================================================
+   CRT Scanline Overlay
+   ============================================================ */
+
+.crt-scanlines {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  z-index: 9998;
+  pointer-events: none;
+  background:
+    linear-gradient(rgba(255, 255, 255, 0) 50%, rgba(0, 0, 0, 0.08) 50%),
+    radial-gradient(circle, rgba(255, 255, 255, 0.02) 0%, rgba(0, 0, 0, 0.15) 100%);
+  background-size: 100% 4px, 100% 100%;
+  opacity: 0.35;
+}
+
+/* ============================================================
+   Dot Grid Background Pattern
+   ============================================================ */
+
+.dot-grid-bg {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  z-index: -2;
+  pointer-events: none;
+  background-image:
+    radial-gradient(rgba(201, 162, 39, 0.04) 1px, transparent 1px);
+  background-size: 28px 28px;
 }
 
 /* ============================================================
@@ -175,4 +297,87 @@
   background: radial-gradient(ellipse at center, transparent 50%, rgba(0, 0, 0, 0.4) 100%);
   pointer-events: none;
   border-radius: inherit;
+}
+
+/* ============================================================
+   VAKH-style Hardware Bezel Chassis
+   ============================================================ */
+
+.chassis-frame {
+  max-width: 1100px;
+  width: 95%;
+  margin: 2rem auto;
+  background: var(--surface);
+  border: 3px double rgba(201, 162, 39, 0.25);
+  border-radius: 12px;
+  padding: 1rem;
+  box-shadow:
+    0 30px 70px -15px rgba(0, 0, 0, 0.5),
+    inset 0 1px 2px rgba(255, 255, 255, 0.05),
+    inset 0 -1px 2px rgba(0, 0, 0, 0.3);
+}
+
+/* ============================================================
+   VAKH-style LED Pulse Animation
+   ============================================================ */
+
+.led-pulse {
+  position: relative;
+}
+
+.led-pulse::before {
+  content: '';
+  position: absolute;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background-color: var(--gold);
+  box-shadow: 0 0 8px rgba(201, 162, 39, 0.8), inset 0 1px 1px white;
+  animation: ledPulse 1.2s infinite alternate;
+}
+
+@keyframes ledPulse {
+  0% { opacity: 0.4; box-shadow: 0 0 4px rgba(201, 162, 39, 0.4); }
+  100% { opacity: 1; box-shadow: 0 0 12px rgba(201, 162, 39, 0.9), inset 0 1px 1px rgba(255,255,255,0.3); }
+}
+
+/* ============================================================
+   VAKH-style Typewriter Cursor
+   ============================================================ */
+
+.cursor-blink::after {
+  content: '█';
+  margin-left: 0.25rem;
+  color: var(--gold);
+  animation: cursorBlink 1.2s steps(2, start) infinite;
+}
+
+@keyframes cursorBlink {
+  to { visibility: hidden; }
+}
+
+/* ============================================================
+   VAKH-style Telemetry Spec Matrix Cell
+   ============================================================ */
+
+.spec-cell {
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(201, 162, 39, 0.08);
+  border-radius: 6px;
+  padding: 1rem;
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+}
+
+.spec-cell .spec-label {
+  display: block;
+  color: var(--text-muted);
+  font-size: 0.65rem;
+  letter-spacing: 0.05em;
+  margin-bottom: 0.25rem;
+}
+
+.spec-cell .spec-value {
+  color: var(--accent-teal);
+  font-weight: 700;
 }
