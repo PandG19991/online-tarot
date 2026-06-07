@@ -1,28 +1,6 @@
 import type { Metadata } from "next";
-import { Playfair_Display, Noto_Serif_SC, Plus_Jakarta_Sans } from "next/font/google";
 import "./globals.css";
 import NoiseOverlay from "@/components/NoiseOverlay";
-
-const playfair = Playfair_Display({
-  variable: "--font-playfair",
-  subsets: ["latin"],
-  display: "swap",
-  weight: ["400", "500", "600"],
-});
-
-const notoSerifSC = Noto_Serif_SC({
-  variable: "--font-noto-serif-sc",
-  subsets: ["latin"],
-  display: "swap",
-  weight: ["400", "500", "700"],
-});
-
-const plusJakarta = Plus_Jakarta_Sans({
-  variable: "--font-jakarta",
-  subsets: ["latin"],
-  display: "swap",
-  weight: ["400", "500", "600"],
-});
 
 export const metadata: Metadata = {
   title: "MysticDraw - 塔罗占卜",
@@ -37,14 +15,33 @@ export default function RootLayout({
   return (
     <html
       lang="zh-CN"
-      className={`${playfair.variable} ${notoSerifSC.variable} ${plusJakarta.variable} h-full antialiased dark`}
+      className="h-full antialiased dark"
       style={{ colorScheme: "dark" }}
     >
-      <body className="min-h-full flex flex-col" style={{ backgroundColor: "var(--bg)", color: "var(--text-primary)" }}>
+      <head>
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+        <link
+          href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;500;600&family=Noto+Serif+SC:wght@300;400;500;700&display=swap"
+          rel="stylesheet"
+        />
+      </head>
+      <body
+        className="min-h-full flex flex-col"
+        style={{ backgroundColor: "#050505", color: "#e8e6e3" }}
+      >
         {/* Background layers */}
-        <div className="fixed inset-0 -z-20 bg-layer-0" />
-        <div className="fixed inset-0 -z-10 bg-layer-1" />
-        <div className="fixed inset-0 -z-10 bg-layer-2" />
+        <div
+          className="fixed inset-0 -z-20"
+          style={{ background: "#050505" }}
+        />
+        <div
+          className="fixed inset-0 -z-10"
+          style={{
+            background:
+              "radial-gradient(ellipse at 30% 20%, #1a0b2e 0%, transparent 55%), radial-gradient(ellipse at 70% 80%, #0d1b2a 0%, transparent 45%)",
+          }}
+        />
 
         {children}
 

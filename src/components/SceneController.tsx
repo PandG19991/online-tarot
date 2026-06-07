@@ -360,7 +360,7 @@ export default function SceneController() {
   };
 
   return (
-    <div className="relative z-10 flex flex-col min-h-full">
+    <div className="relative z-10 flex flex-col min-h-[100dvh]">
       {/* Scene transition layer */}
       <div className="relative flex-1 overflow-hidden">
         {exitingScene && (
