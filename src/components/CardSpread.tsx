@@ -132,6 +132,8 @@ function ThreeCardSpread({
       { x: isMobile ? 10 : 30, y: isMobile ? 6 : 10, rotation: isMobile ? 5 : 10 },
     ];
 
+    const tweens: gsap.core.Tween[] = [];
+
     cardWrapRefs.current.forEach((el, i) => {
       if (!el) return;
       const isRevealed = revealedIndices.includes(i);
@@ -148,27 +150,35 @@ function ThreeCardSpread({
         const targetY = 0;
         const targetRotation = (i - 1) * (isMobile ? 1 : 2);
 
-        gsap.to(el, {
-          x: targetX,
-          y: targetY,
-          rotation: targetRotation,
-          scale: 1,
-          duration: 0.7,
-          ease: 'power3.out',
-          delay: 0.05,
-        });
+        tweens.push(
+          gsap.to(el, {
+            x: targetX,
+            y: targetY,
+            rotation: targetRotation,
+            scale: 1,
+            duration: 0.7,
+            ease: 'power3.out',
+            delay: 0.05,
+          })
+        );
       } else {
         // Stack with fan offset
-        gsap.to(el, {
-          x: stackOffsets[i].x,
-          y: stackOffsets[i].y,
-          rotation: stackOffsets[i].rotation,
-          scale: 1,
-          duration: 0.4,
-          ease: 'power2.out',
-        });
+        tweens.push(
+          gsap.to(el, {
+            x: stackOffsets[i].x,
+            y: stackOffsets[i].y,
+            rotation: stackOffsets[i].rotation,
+            scale: 1,
+            duration: 0.4,
+            ease: 'power2.out',
+          })
+        );
       }
     });
+
+    return () => {
+      tweens.forEach((t) => t.kill());
+    };
   }, [revealedIndices, isMobile, dims.w]);
 
   // ── All revealed: container rises + preview fades in ──

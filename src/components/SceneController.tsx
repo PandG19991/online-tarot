@@ -328,7 +328,7 @@ export default function SceneController() {
       }));
       transitionTo("drawing");
     }, 3000);
-  }, []);
+  }, [transitionTo]);
 
   const revealCard = useCallback((index: number) => {
     setRevealedIndices((prev) => {

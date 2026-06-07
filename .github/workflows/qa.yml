@@ -1,0 +1,93 @@
+name: QA Check
+
+on:
+  push:
+    branches: [main, develop]
+    paths:
+      - 'src/**'
+      - 'eslint-rules/**'
+      - 'eslint.config.*'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'src/**'
+      - 'eslint-rules/**'
+      - 'eslint.config.*'
+
+jobs:
+  lint:
+    name: ESLint + Custom Rules
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run ESLint
+        run: npx eslint src --max-warnings=10
+        id: eslint
+
+      - name: Comment PR with results
+        if: github.event_name == 'pull_request' && always()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { execSync } = require('child_process');
+
+            let output;
+            try {
+              output = execSync('npx eslint src --max-warnings=10', { encoding: 'utf-8', cwd: process.cwd() });
+            } catch (e) {
+              output = e.stdout || e.message;
+            }
+
+            const hasErrors = output.includes('error');
+            const hasWarnings = output.includes('warning');
+            const passed = !hasErrors && !hasWarnings;
+
+            const icon = passed ? '✅' : hasErrors ? '❌' : '⚠️';
+            const status = passed ? 'PASSED' : hasErrors ? 'FAILED' : 'PASSED WITH WARNINGS';
+
+            const body = `## ${icon} ESLint QA ${status}
+
+<pre><code>${output}</code></pre>
+
+${hasErrors ? '⛔ **Please fix errors before merging.**' : '✅ **Ready to merge.**'}
+`;
+
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+            });
+
+            const qaComment = comments.find(c => c.body.includes('ESLint QA'));
+
+            if (qaComment) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: qaComment.id,
+                body,
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body,
+              });
+            }
+
+      - name: Fail on errors
+        if: steps.eslint.outcome == 'failure'
+        run: exit 1

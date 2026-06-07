@@ -135,27 +135,36 @@ export default function FortuneTeller({
     if (!containerRef.current) return;
 
     gsap.killTweensOf(containerRef.current);
+    const tweens: gsap.core.Tween[] = [];
 
     if (isVisible) {
       gsap.set(containerRef.current, { display: 'block' });
-      gsap.fromTo(
-        containerRef.current,
-        { y: 100, opacity: 0 },
-        { y: 0, opacity: 1, duration: 0.8, ease: 'back.out(1.4)' }
+      tweens.push(
+        gsap.fromTo(
+          containerRef.current,
+          { y: 100, opacity: 0 },
+          { y: 0, opacity: 1, duration: 0.8, ease: 'back.out(1.4)' }
+        )
       );
     } else {
-      gsap.to(containerRef.current, {
-        y: 100,
-        opacity: 0,
-        duration: 0.5,
-        ease: 'power2.in',
-        onComplete: () => {
-          if (containerRef.current) {
-            gsap.set(containerRef.current, { display: 'none' });
-          }
-        },
-      });
+      tweens.push(
+        gsap.to(containerRef.current, {
+          y: 100,
+          opacity: 0,
+          duration: 0.5,
+          ease: 'power2.in',
+          onComplete: () => {
+            if (containerRef.current) {
+              gsap.set(containerRef.current, { display: 'none' });
+            }
+          },
+        })
+      );
     }
+
+    return () => {
+      tweens.forEach((t) => t.kill());
+    };
   }, [isVisible]);
 
   /* ---------- typewriter (GSAP delayedCall) ---------- */
