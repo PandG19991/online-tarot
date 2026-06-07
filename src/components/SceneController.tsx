@@ -275,6 +275,7 @@ export default function SceneController() {
 
   const selectSpread = useCallback((spreadType: SpreadType) => {
     const deck = shuffleDeck(createMajorArcanaDeck());
+    transitionTo("shuffling");
     setGameState((prev) => ({
       ...prev,
       spreadType,
