@@ -3,19 +3,83 @@
 
 @custom-variant dark (&:is(.dark *));
 
-/* CEO 只定义共享工具类，视觉主题由 FE 专家用 taste-skill 设计 */
+/* ============================================================
+   MysticDraw V2 — Design Infrastructure (Worker-A)
+   颜色令牌 / 字体 / 背景层 / 共享工具类
+   禁止: shadcn 默认 --background/--foreground 等旧变量
+   ============================================================ */
 
 @layer base {
+  :root {
+    /* Core Palette */
+    --bg: #050505;
+    --surface: #0a0a0f;
+    --card-outer: #111118;
+    --card-inner: #161620;
+    --gold: #c9a227;
+    --purple: #7c3aed;
+    --text-primary: #e8e6e3;
+    --text-muted: #6b6570;
+
+    /* Glows */
+    --glow-gold: rgba(201, 162, 39, 0.15);
+    --glow-purple: rgba(124, 58, 237, 0.12);
+
+    /* Font families */
+    --font-heading: var(--font-playfair), var(--font-noto-serif-sc), "Noto Serif SC", serif;
+    --font-body: var(--font-jakarta), "Plus Jakarta Sans", system-ui, sans-serif;
+    --font-mono: "Geist Mono", "SF Mono", ui-monospace, monospace;
+
+    /* Legacy neutral tokens (minimal, for compatibility) */
+    --border-subtle: rgba(201, 162, 39, 0.15);
+  }
+
   * {
     border-color: rgba(255, 255, 255, 0.1);
     outline-color: rgba(255, 255, 255, 0.3);
   }
+
   html {
     scroll-behavior: smooth;
+    background-color: var(--bg);
+    color: var(--text-primary);
+  }
+
+  body {
+    font-family: var(--font-body);
+    background-color: var(--bg);
+    color: var(--text-primary);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  h1, h2, h3, h4 {
+    font-family: var(--font-heading);
+    font-weight: 400;
+    letter-spacing: 0.02em;
   }
 }
 
-/* 3D Card Flip Utilities - 所有 subagent 共享 */
+/* ============================================================
+   Background Layers (Z-Axis Cascade)
+   ============================================================ */
+
+.bg-layer-0 {
+  background-color: var(--bg);
+}
+
+.bg-layer-1 {
+  background: radial-gradient(ellipse at 30% 20%, #1a0b2e 0%, transparent 50%);
+}
+
+.bg-layer-2 {
+  background: radial-gradient(ellipse at 70% 80%, #0d1b2a 0%, transparent 40%);
+}
+
+/* ============================================================
+   3D Card Flip Utilities — 所有 subagent 共享
+   ============================================================ */
+
 .perspective-1000 {
   perspective: 1000px;
 }
@@ -32,14 +96,83 @@
   transform: rotateY(180deg);
 }
 
-/* Scrollbar - 暗色模式默认 */
+/* ============================================================
+   Scrollbar — 暗色模式默认
+   ============================================================ */
+
 ::-webkit-scrollbar {
   width: 6px;
 }
+
 ::-webkit-scrollbar-track {
-  background: #0a0a0f;
+  background: var(--surface);
 }
+
 ::-webkit-scrollbar-thumb {
   background: rgba(255, 255, 255, 0.1);
   border-radius: 3px;
+}
+
+/* ============================================================
+   Utility: Island Button base
+   ============================================================ */
+
+.island-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 9999px;
+  padding: 1rem 2rem;
+  background: transparent;
+  border: 1px solid rgba(201, 162, 39, 0.3);
+  color: var(--gold);
+  font-family: var(--font-body);
+  font-size: 0.75rem;
+  font-weight: 500;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  transition: all 0.4s cubic-bezier(0.22, 1, 0.36, 1);
+  cursor: pointer;
+}
+
+.island-button:hover {
+  border-color: rgba(201, 162, 39, 0.8);
+  background: rgba(201, 162, 39, 0.05);
+  box-shadow: 0 0 30px rgba(201, 162, 39, 0.15);
+}
+
+.island-button:active {
+  transform: scale(0.98);
+}
+
+/* ============================================================
+   Utility: Double-Bezel Card
+   ============================================================ */
+
+.card-outer {
+  background: var(--card-outer);
+  border: 1px solid rgba(201, 162, 39, 0.15);
+  border-radius: 24px;
+  padding: 3px;
+  box-shadow:
+    0 0 0 1px rgba(201, 162, 39, 0.05),
+    0 25px 50px -12px rgba(0, 0, 0, 0.5),
+    inset 0 1px 1px rgba(255, 255, 255, 0.05);
+}
+
+.card-inner {
+  background: var(--card-inner);
+  border-radius: 21px;
+  box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.08);
+  position: relative;
+  overflow: hidden;
+}
+
+.card-inner::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(ellipse at center, transparent 50%, rgba(0, 0, 0, 0.4) 100%);
+  pointer-events: none;
+  border-radius: inherit;
 }

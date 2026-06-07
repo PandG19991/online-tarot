@@ -1,8 +1,7 @@
 'use client';
 
 import { useState, useCallback, useRef } from 'react';
-import { motion } from 'framer-motion';
-import { Download, Share2, Check } from 'lucide-react';
+import { toPng } from 'html-to-image';
 import type { DrawnCard, SpreadType } from '@/types/tarot';
 
 interface ShareCardProps {
@@ -40,63 +39,16 @@ export default function ShareCard({ drawnCards, spreadType }: ShareCardProps) {
     setIsGenerating(true);
 
     try {
-      const node = exportRef.current;
-
-      // Measure height (visibility:hidden preserves layout)
-      const originalVisibility = node.style.visibility;
-      node.style.visibility = 'visible';
-      const height = node.offsetHeight;
-      node.style.visibility = originalVisibility;
-
-      const width = 600;
-      const scale = 2;
-
-      // Clone and scale for SVG rendering
-      const clone = node.cloneNode(true) as HTMLDivElement;
-      clone.style.transform = `scale(${scale})`;
-      clone.style.transformOrigin = 'top left';
-
-      const svgString = `
-        <svg xmlns="http://www.w3.org/2000/svg" width="${width * scale}" height="${height * scale}">
-          <foreignObject width="100%" height="100%">
-            <div xmlns="http://www.w3.org/1999/xhtml">
-              ${clone.outerHTML}
-            </div>
-          </foreignObject>
-        </svg>
-      `;
-
-      const canvas = document.createElement('canvas');
-      canvas.width = width * scale;
-      canvas.height = height * scale;
-      const ctx = canvas.getContext('2d');
-      if (!ctx) throw new Error('Canvas context unavailable');
-
-      // Load SVG into image
-      const svgBlob = new Blob([svgString], { type: 'image/svg+xml;charset=utf-8' });
-      const svgUrl = URL.createObjectURL(svgBlob);
-
-      const img = new Image();
-      await new Promise<void>((resolve, reject) => {
-        img.onload = () => resolve();
-        img.onerror = reject;
-        img.src = svgUrl;
+      const dataUrl = await toPng(exportRef.current, {
+        pixelRatio: 1,
       });
 
-      // Fill background and draw
-      ctx.fillStyle = '#0f0a1e';
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
-      ctx.drawImage(img, 0, 0);
-      URL.revokeObjectURL(svgUrl);
-
-      // Download
       const link = document.createElement('a');
       link.download = `MysticDraw-${new Date().toISOString().slice(0, 10)}.png`;
-      link.href = canvas.toDataURL('image/png');
+      link.href = dataUrl;
       link.click();
     } catch (err) {
       console.error('Share image generation failed:', err);
-      alert('图片生成失败，请重试');
     } finally {
       setIsGenerating(false);
     }
@@ -122,18 +74,28 @@ export default function ShareCard({ drawnCards, spreadType }: ShareCardProps) {
   return (
     <div className="w-full max-w-2xl mx-auto p-5">
       {/* Preview Card */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5 }}
-        className="bg-gradient-to-br from-[#1a103c] via-[#0f0a1e] to-[#1a0b2e] border border-amber-500/25 rounded-2xl p-6 md:p-8 shadow-2xl overflow-hidden relative"
+      <div
+        className="rounded-2xl p-6 md:p-8 shadow-2xl overflow-hidden relative"
+        style={{
+          background: 'linear-gradient(135deg, #1a103c 0%, #0f0a1e 50%, #1a0b2e 100%)',
+          border: '1px solid rgba(201, 162, 39, 0.25)',
+        }}
       >
         {/* Subtle glow */}
-        <div className="absolute -top-20 -right-20 w-40 h-40 bg-purple-600/10 rounded-full blur-3xl pointer-events-none" />
-        <div className="absolute -bottom-20 -left-20 w-40 h-40 bg-amber-600/8 rounded-full blur-3xl pointer-events-none" />
+        <div
+          className="absolute -top-20 -right-20 w-40 h-40 rounded-full blur-3xl pointer-events-none"
+          style={{ background: 'rgba(124, 58, 237, 0.1)' }}
+        />
+        <div
+          className="absolute -bottom-20 -left-20 w-40 h-40 rounded-full blur-3xl pointer-events-none"
+          style={{ background: 'rgba(201, 162, 39, 0.08)' }}
+        />
 
         <div className="relative text-center mb-6">
-          <h3 className="text-xl font-semibold text-amber-200/90 tracking-[0.15em] mb-1">
+          <h3
+            className="text-xl font-medium tracking-[0.15em] mb-1"
+            style={{ color: 'rgba(240, 215, 140, 0.9)', fontFamily: 'var(--font-heading)' }}
+          >
             MysticDraw
           </h3>
           <p className="text-[11px] text-white/35 tracking-wider">
@@ -145,13 +107,12 @@ export default function ShareCard({ drawnCards, spreadType }: ShareCardProps) {
           {drawnCards.map((drawn, i) => (
             <div key={i} className="text-center">
               <div
-                className={`
-                  relative w-[60px] h-[92px] rounded-lg overflow-hidden
-                  bg-gradient-to-br from-indigo-900 to-purple-950
-                  border border-amber-500/25 flex flex-col items-center justify-center p-2
-                  shadow-lg
-                  ${drawn.isReversed ? 'rotate-180' : ''}
-                `}
+                className="relative w-[60px] h-[92px] rounded-lg overflow-hidden flex flex-col items-center justify-center p-2 shadow-lg"
+                style={{
+                  background: 'linear-gradient(135deg, #2d1b69 0%, #1a0f3c 100%)',
+                  border: '1px solid rgba(201, 162, 39, 0.25)',
+                  transform: drawn.isReversed ? 'rotate(180deg)' : 'none',
+                }}
               >
                 <span className="text-[7px] text-amber-200/40 uppercase tracking-[0.15em]">
                   {drawn.card.arcana}
@@ -172,50 +133,46 @@ export default function ShareCard({ drawnCards, spreadType }: ShareCardProps) {
           ))}
         </div>
 
-        <div className="relative bg-white/[0.04] border border-white/[0.08] rounded-xl p-5 mb-5">
+        <div
+          className="relative rounded-xl p-5 mb-5"
+          style={{
+            background: 'rgba(255,255,255,0.04)',
+            border: '1px solid rgba(255,255,255,0.08)',
+          }}
+        >
           <p className="text-sm text-white/65 text-center leading-relaxed italic">
             {summary}
           </p>
         </div>
 
         <div className="relative text-center">
-          <span className="text-[10px] text-amber-400/35 tracking-[0.25em]">
+          <span className="text-[10px] tracking-[0.25em]" style={{ color: 'rgba(240, 215, 140, 0.35)' }}>
             ✦ MYSTICDRAW · 塔罗指引 ✦
           </span>
         </div>
-      </motion.div>
+      </div>
 
       {/* Actions */}
       <div className="flex justify-center mt-5 gap-3">
-        <motion.button
-          whileHover={{ scale: 1.04 }}
-          whileTap={{ scale: 0.96 }}
+        <button
           onClick={handleDownload}
           disabled={isGenerating}
-          className="flex items-center gap-2 px-6 py-2.5 rounded-full bg-gradient-to-r from-amber-500/15 to-purple-500/15 border border-amber-500/25 text-amber-200/80 text-sm font-medium hover:border-amber-500/45 hover:from-amber-500/25 hover:to-purple-500/25 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+          className="island-button text-xs py-3 px-6 disabled:opacity-40 disabled:cursor-not-allowed"
         >
-          <Download size={15} />
           {isGenerating ? '生成中...' : '保存图片'}
-        </motion.button>
+        </button>
 
-        <motion.button
-          whileHover={{ scale: 1.04 }}
-          whileTap={{ scale: 0.96 }}
-          onClick={handleCopySummary}
-          className="flex items-center gap-2 px-6 py-2.5 rounded-full bg-white/[0.04] border border-white/10 text-white/60 text-sm font-medium hover:bg-white/[0.07] hover:border-white/15 transition-all"
-        >
-          {copied ? <Check size={15} className="text-emerald-400" /> : <Share2 size={15} />}
+        <button onClick={handleCopySummary} className="island-button text-xs py-3 px-6">
           {copied ? '已复制' : '复制文案'}
-        </motion.button>
+        </button>
       </div>
 
-      {/* Hidden export element - inline styles only for SVG foreignObject */}
+      {/* Hidden export element - 1200x630 */}
       <div
         style={{
           position: 'fixed',
-          left: 0,
+          left: '-9999px',
           top: 0,
-          visibility: 'hidden',
           pointerEvents: 'none',
           zIndex: -1,
         }}
@@ -223,33 +180,38 @@ export default function ShareCard({ drawnCards, spreadType }: ShareCardProps) {
         <div
           ref={exportRef}
           style={{
-            width: '600px',
+            width: 1200,
+            height: 630,
             background: 'linear-gradient(135deg, #1a103c 0%, #0f0a1e 50%, #1a0b2e 100%)',
-            padding: '40px',
+            padding: 60,
             border: '2px solid #c9a227',
-            borderRadius: '16px',
-            fontFamily:
-              'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+            borderRadius: 16,
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
             color: '#ffffff',
+            fontFamily: 'var(--font-body), system-ui, sans-serif',
             boxSizing: 'border-box',
           }}
         >
           {/* Header */}
-          <div style={{ textAlign: 'center', marginBottom: '28px' }}>
+          <div style={{ textAlign: 'center', marginBottom: 32 }}>
             <h2
               style={{
-                fontSize: '24px',
-                fontWeight: 600,
+                fontSize: 28,
+                fontWeight: 500,
                 color: '#f0d78c',
                 margin: '0 0 8px 0',
                 letterSpacing: '0.15em',
+                fontFamily: 'var(--font-heading), serif',
               }}
             >
               MysticDraw
             </h2>
             <p
               style={{
-                fontSize: '13px',
+                fontSize: 14,
                 color: 'rgba(255,255,255,0.45)',
                 margin: 0,
                 letterSpacing: '0.1em',
@@ -264,8 +226,8 @@ export default function ShareCard({ drawnCards, spreadType }: ShareCardProps) {
             style={{
               display: 'flex',
               justifyContent: 'center',
-              gap: '14px',
-              marginBottom: '28px',
+              gap: 18,
+              marginBottom: 32,
               flexWrap: 'wrap',
             }}
           >
@@ -273,24 +235,23 @@ export default function ShareCard({ drawnCards, spreadType }: ShareCardProps) {
               <div key={i} style={{ textAlign: 'center' }}>
                 <div
                   style={{
-                    width: '78px',
-                    height: '118px',
-                    background:
-                      'linear-gradient(135deg, #2d1b69 0%, #1a0f3c 100%)',
-                    borderRadius: '10px',
+                    width: 90,
+                    height: 136,
+                    background: 'linear-gradient(135deg, #2d1b69 0%, #1a0f3c 100%)',
+                    borderRadius: 10,
                     border: '1px solid rgba(201, 162, 39, 0.35)',
                     display: 'flex',
                     flexDirection: 'column',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    padding: '8px',
+                    padding: 10,
                     transform: drawn.isReversed ? 'rotate(180deg)' : 'none',
                     boxSizing: 'border-box',
                   }}
                 >
                   <span
                     style={{
-                      fontSize: '9px',
+                      fontSize: 10,
                       color: 'rgba(240, 215, 140, 0.5)',
                       textTransform: 'uppercase',
                       letterSpacing: '0.1em',
@@ -300,10 +261,10 @@ export default function ShareCard({ drawnCards, spreadType }: ShareCardProps) {
                   </span>
                   <span
                     style={{
-                      fontSize: '12px',
+                      fontSize: 14,
                       color: '#ffffff',
                       textAlign: 'center',
-                      marginTop: '6px',
+                      marginTop: 8,
                       fontWeight: 500,
                       lineHeight: 1.3,
                     }}
@@ -313,9 +274,9 @@ export default function ShareCard({ drawnCards, spreadType }: ShareCardProps) {
                   {drawn.card.suit && (
                     <span
                       style={{
-                        fontSize: '9px',
+                        fontSize: 10,
                         color: 'rgba(167, 139, 250, 0.5)',
-                        marginTop: '4px',
+                        marginTop: 6,
                         textTransform: 'capitalize',
                       }}
                     >
@@ -326,9 +287,9 @@ export default function ShareCard({ drawnCards, spreadType }: ShareCardProps) {
                 {drawn.isReversed && (
                   <span
                     style={{
-                      fontSize: '10px',
+                      fontSize: 11,
                       color: '#a78bfa',
-                      marginTop: '6px',
+                      marginTop: 6,
                       display: 'inline-block',
                     }}
                   >
@@ -343,15 +304,17 @@ export default function ShareCard({ drawnCards, spreadType }: ShareCardProps) {
           <div
             style={{
               background: 'rgba(255,255,255,0.05)',
-              borderRadius: '12px',
-              padding: '20px',
+              borderRadius: 12,
+              padding: 24,
               border: '1px solid rgba(255,255,255,0.08)',
-              marginBottom: '24px',
+              marginBottom: 24,
+              maxWidth: 800,
+              width: '100%',
             }}
           >
             <p
               style={{
-                fontSize: '14px',
+                fontSize: 15,
                 lineHeight: 1.8,
                 color: 'rgba(255,255,255,0.8)',
                 margin: 0,
@@ -367,7 +330,7 @@ export default function ShareCard({ drawnCards, spreadType }: ShareCardProps) {
           <div style={{ textAlign: 'center' }}>
             <p
               style={{
-                fontSize: '11px',
+                fontSize: 12,
                 color: 'rgba(240, 215, 140, 0.45)',
                 letterSpacing: '0.2em',
                 margin: 0,

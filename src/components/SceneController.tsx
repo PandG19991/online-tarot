@@ -1,9 +1,19 @@
 "use client";
 
-import { useState, useCallback } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { useState, useCallback, useRef, useLayoutEffect } from "react";
+import gsap from "gsap";
 import type { Scene, SpreadType, TarotCard, DrawnCard, GameState } from "@/types/tarot";
 import LandingScene from "./LandingScene";
+import SpreadSelector from "./SpreadSelector";
+import ShuffleAnimation from "./ShuffleAnimation";
+import CardSpread from "./CardSpread";
+import ReadingResult from "./ReadingResult";
+import FortuneTeller from "./FortuneTeller";
+import ShareCard from "./ShareCard";
+
+/* ============================================================
+   Deck & helpers
+   ============================================================ */
 
 function createMajorArcanaDeck(): TarotCard[] {
   const majorArcana: TarotCard[] = [
@@ -63,17 +73,134 @@ function getPositionLabel(spreadType: SpreadType, position: number): string {
   }
 }
 
-const sceneVariants = {
-  initial: { opacity: 0, scale: 0.96 },
-  animate: { opacity: 1, scale: 1 },
-  exit: { opacity: 0, scale: 1.02 },
-};
+/* ============================================================
+   SceneRenderer — declared outside SceneController to satisfy
+   React static component rules.
+   ============================================================ */
 
-const spreadOptions: { type: SpreadType; title: string; desc: string; cards: number }[] = [
-  { type: "single", title: "单张牌", desc: "快速获取当下的指引与启示", cards: 1 },
-  { type: "three", title: "三张牌", desc: "探索过去、现在与未来的联系", cards: 3 },
-  { type: "celtic", title: "凯尔特十字", desc: "深入分析问题的十个维度", cards: 10 },
-];
+interface SceneRendererProps {
+  scene: Scene;
+  gameState: GameState;
+  revealedIndices: number[];
+  onTransition: (scene: Scene) => void;
+  onSelectSpread: (spread: SpreadType) => void;
+  onRevealCard: (index: number) => void;
+  onSelectCard: (index: number) => void;
+  onReset: () => void;
+}
+
+function SceneRenderer({
+  scene,
+  gameState,
+  revealedIndices,
+  onTransition,
+  onSelectSpread,
+  onRevealCard,
+  onSelectCard,
+  onReset,
+}: SceneRendererProps) {
+  switch (scene) {
+    case "landing":
+      return <LandingScene onStart={() => onTransition("spread-select")} />;
+
+    case "spread-select":
+      return (
+        <div className="flex flex-col items-center justify-center min-h-full px-6 py-20">
+          <h2
+            className="text-3xl sm:text-4xl font-bold text-white mb-4"
+            style={{ fontFamily: "var(--font-heading)" }}
+          >
+            选择牌阵
+          </h2>
+          <p className="text-[var(--text-muted)] mb-12 text-center max-w-md">
+            不同的牌阵揭示不同层面的信息，选择最适合你当下问题的牌阵
+          </p>
+          <SpreadSelector
+            onSelect={onSelectSpread}
+            selected={gameState.spreadType}
+          />
+          <button
+            onClick={() => onTransition("landing")}
+            className="mt-12 text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors text-sm"
+          >
+            ← 返回首页
+          </button>
+        </div>
+      );
+
+    case "shuffling":
+      return (
+        <div className="flex flex-col items-center justify-center min-h-full px-6">
+          <ShuffleAnimation />
+          <p className="mt-8 text-xl text-[var(--text-muted)] text-center">
+            正在与宇宙建立连接...
+          </p>
+        </div>
+      );
+
+    case "drawing":
+      return (
+        <div className="flex flex-col items-center justify-center min-h-full px-6 py-20">
+          <h2
+            className="text-2xl sm:text-3xl font-bold text-white mb-2"
+            style={{ fontFamily: "var(--font-heading)" }}
+          >
+            抽取塔罗牌
+          </h2>
+          <p className="text-[var(--text-muted)] mb-10 text-center">
+            点击牌背逐张翻开，共需翻开 {getSpreadCardCount(gameState.spreadType)} 张牌
+          </p>
+          <CardSpread
+            spreadType={gameState.spreadType}
+            drawnCards={gameState.drawnCards}
+            revealedIndices={revealedIndices}
+            selectedIndex={gameState.selectedCardIndex}
+            onCardClick={onRevealCard}
+          />
+          <p className="mt-8 text-[var(--text-muted)] text-sm">
+            已翻开 {revealedIndices.length} / {getSpreadCardCount(gameState.spreadType)} 张
+          </p>
+        </div>
+      );
+
+    case "reading":
+      return (
+        <div className="flex flex-col items-center min-h-full px-6 py-20 max-w-4xl mx-auto w-full pb-[320px]">
+          <h2
+            className="text-2xl sm:text-3xl font-bold text-white mb-2"
+            style={{ fontFamily: "var(--font-heading)" }}
+          >
+            塔罗解读
+          </h2>
+          <p className="text-[var(--text-muted)] mb-8 text-center">
+            点击单张牌查看详细解读
+          </p>
+          <ReadingResult
+            drawnCards={gameState.drawnCards}
+            spreadType={gameState.spreadType}
+            onCardSelect={onSelectCard}
+            selectedIndex={gameState.selectedCardIndex}
+          />
+          <div className="mt-10 w-full">
+            <ShareCard
+              drawnCards={gameState.drawnCards}
+              spreadType={gameState.spreadType}
+            />
+          </div>
+          <button onClick={onReset} className="mt-10 island-button">
+            再次占卜
+          </button>
+        </div>
+      );
+
+    default:
+      return null;
+  }
+}
+
+/* ============================================================
+   SceneController
+   ============================================================ */
 
 export default function SceneController() {
   const [gameState, setGameState] = useState<GameState>({
@@ -85,61 +212,119 @@ export default function SceneController() {
     selectedCardIndex: null,
   });
 
-  const goToScene = useCallback((scene: Scene) => {
-    setGameState((prev) => ({ ...prev, scene }));
-  }, []);
+  const [revealedIndices, setRevealedIndices] = useState<number[]>([]);
+  const [currentScene, setCurrentScene] = useState<Scene>("landing");
+  const [exitingScene, setExitingScene] = useState<Scene | null>(null);
+
+  const currentRef = useRef<HTMLDivElement>(null);
+  const exitingRef = useRef<HTMLDivElement>(null);
+  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  /* ---------- transition engine ---------- */
+
+  const transitionTo = useCallback((next: Scene) => {
+    if (next === currentScene || exitingScene) return;
+    setExitingScene(currentScene);
+    setCurrentScene(next);
+  }, [currentScene, exitingScene]);
+
+  useLayoutEffect(() => {
+    if (!exitingScene || !exitingRef.current || !currentRef.current) return;
+
+    const tl = gsap.timeline({
+      onComplete: () => {
+        if (currentRef.current) {
+          gsap.set(currentRef.current, { clearProps: "opacity,transform,filter" });
+        }
+        setExitingScene(null);
+      },
+    });
+
+    tl.to(exitingRef.current, {
+      opacity: 0,
+      scale: 0.95,
+      filter: "blur(4px)",
+      duration: 0.6,
+      ease: "power2.inOut",
+    });
+
+    gsap.set(currentRef.current, {
+      opacity: 0,
+      scale: 1.05,
+      filter: "blur(4px)",
+    });
+
+    tl.to(
+      currentRef.current,
+      {
+        opacity: 1,
+        scale: 1,
+        filter: "blur(0px)",
+        duration: 0.6,
+        ease: "power2.inOut",
+      },
+      "-=0.3"
+    );
+
+    return () => {
+      tl.kill();
+    };
+  }, [exitingScene]);
+
+  /* ---------- game actions ---------- */
 
   const selectSpread = useCallback((spreadType: SpreadType) => {
+    const deck = shuffleDeck(createMajorArcanaDeck());
     setGameState((prev) => ({
       ...prev,
       spreadType,
       scene: "shuffling",
       isShuffling: true,
-      deck: shuffleDeck(createMajorArcanaDeck()),
+      deck,
       drawnCards: [],
       selectedCardIndex: null,
     }));
+    setRevealedIndices([]);
 
-    setTimeout(() => {
+    timeoutRef.current = setTimeout(() => {
+      const count = getSpreadCardCount(spreadType);
+      const drawn: DrawnCard[] = [];
+      for (let i = 0; i < count; i++) {
+        const card = deck[i];
+        const isReversed = Math.random() < 0.15;
+        drawn.push({
+          card,
+          isReversed,
+          position: i,
+          positionLabel: getPositionLabel(spreadType, i),
+        });
+      }
       setGameState((prev) => ({
         ...prev,
         scene: "drawing",
         isShuffling: false,
+        drawnCards: drawn,
+        selectedCardIndex: null,
       }));
     }, 3000);
   }, []);
 
-  const drawCard = useCallback((position: number) => {
-    setGameState((prev) => {
-      if (prev.drawnCards.length >= getSpreadCardCount(prev.spreadType)) {
-        return prev;
-      }
-      const card = prev.deck[prev.drawnCards.length];
-      if (!card) return prev;
-      const isReversed = Math.random() < 0.15;
-      const drawnCard: DrawnCard = {
-        card,
-        isReversed,
-        position,
-        positionLabel: getPositionLabel(prev.spreadType, position),
-      };
-      const newDrawnCards = [...prev.drawnCards, drawnCard];
-      const newState: GameState = {
-        ...prev,
-        drawnCards: newDrawnCards,
-      };
-      if (newDrawnCards.length >= getSpreadCardCount(prev.spreadType)) {
-        newState.scene = "reading";
-      }
-      return newState;
+  const revealCard = useCallback((index: number) => {
+    setRevealedIndices((prev) => {
+      if (prev.includes(index)) return prev;
+      return [...prev, index];
     });
   }, []);
 
-  const selectCard = useCallback((index: number | null) => {
-    setGameState((prev) => ({ ...prev, selectedCardIndex: index }));
+  const selectCard = useCallback((index: number) => {
+    setGameState((prev) => ({
+      ...prev,
+      selectedCardIndex: prev.selectedCardIndex === index ? null : index,
+    }));
   }, []);
 
   const resetGame = useCallback(() => {
+    if (timeoutRef.current) clearTimeout(timeoutRef.current);
     setGameState({
       scene: "landing",
       spreadType: "single",
@@ -148,276 +333,59 @@ export default function SceneController() {
       isShuffling: false,
       selectedCardIndex: null,
     });
-  }, []);
+    setRevealedIndices([]);
+    transitionTo("landing");
+  }, [transitionTo]);
+
+  /* ---------- auto-transition when all cards revealed ---------- */
+
+  useLayoutEffect(() => {
+    if (currentScene === "drawing") {
+      const total = getSpreadCardCount(gameState.spreadType);
+      if (revealedIndices.length >= total && revealedIndices.length > 0) {
+        const timer = setTimeout(() => transitionTo("reading"), 800);
+        return () => clearTimeout(timer);
+      }
+    }
+  }, [revealedIndices, currentScene, gameState.spreadType, transitionTo]);
+
+  const sharedRendererProps: Omit<SceneRendererProps, "scene"> = {
+    gameState,
+    revealedIndices,
+    onTransition: transitionTo,
+    onSelectSpread: selectSpread,
+    onRevealCard: revealCard,
+    onSelectCard: selectCard,
+    onReset: resetGame,
+  };
 
   return (
     <div className="relative z-10 flex flex-col min-h-full">
-      <AnimatePresence mode="wait">
-        {gameState.scene === "landing" && (
-          <motion.div
-            key="landing"
-            variants={sceneVariants}
-            initial="initial"
-            animate="animate"
-            exit="exit"
-            transition={{ duration: 0.5, ease: "easeInOut" }}
-            className="flex-1"
+      {/* Scene transition layer */}
+      <div className="relative flex-1 overflow-hidden">
+        {exitingScene && (
+          <div
+            ref={exitingRef}
+            className="absolute inset-0 pointer-events-none"
           >
-            <LandingScene onStart={() => goToScene("spread-select")} />
-          </motion.div>
+            <SceneRenderer scene={exitingScene} {...sharedRendererProps} />
+          </div>
         )}
+        <div
+          ref={currentRef}
+          className="absolute inset-0"
+          style={{ opacity: exitingScene ? 0 : 1 }}
+        >
+          <SceneRenderer scene={currentScene} {...sharedRendererProps} />
+        </div>
+      </div>
 
-        {gameState.scene === "spread-select" && (
-          <motion.div
-            key="spread-select"
-            variants={sceneVariants}
-            initial="initial"
-            animate="animate"
-            exit="exit"
-            transition={{ duration: 0.5, ease: "easeInOut" }}
-            className="flex flex-col items-center justify-center min-h-full px-6 py-20"
-          >
-            <h2
-              className="text-3xl sm:text-4xl font-bold text-white mb-4"
-              style={{ fontFamily: "var(--font-playfair), serif" }}
-            >
-              选择牌阵
-            </h2>
-            <p className="text-zinc-400 mb-12 text-center max-w-md">
-              不同的牌阵揭示不同层面的信息，选择最适合你当下问题的牌阵
-            </p>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 max-w-4xl w-full">
-              {spreadOptions.map((option, index) => (
-                <motion.button
-                  key={option.type}
-                  onClick={() => selectSpread(option.type)}
-                  className="flex flex-col items-center p-8 rounded-2xl border border-white/10 bg-white/5 backdrop-blur-sm hover:bg-white/10 hover:border-white/20 transition-colors text-left"
-                  initial={{ opacity: 0, y: 30 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.1 * index + 0.3 }}
-                  whileHover={{ scale: 1.03, y: -4 }}
-                  whileTap={{ scale: 0.97 }}
-                >
-                  <span
-                    className="text-2xl font-bold text-white mb-2"
-                    style={{ fontFamily: "var(--font-playfair), serif" }}
-                  >
-                    {option.title}
-                  </span>
-                  <span className="text-sm text-zinc-500 mb-4">
-                    {option.cards} 张牌
-                  </span>
-                  <span className="text-zinc-300 text-center text-sm">
-                    {option.desc}
-                  </span>
-                </motion.button>
-              ))}
-            </div>
-            <motion.button
-              onClick={() => goToScene("landing")}
-              className="mt-12 text-zinc-500 hover:text-zinc-300 transition-colors text-sm"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ delay: 0.8 }}
-            >
-              ← 返回首页
-            </motion.button>
-          </motion.div>
-        )}
-
-        {gameState.scene === "shuffling" && (
-          <motion.div
-            key="shuffling"
-            variants={sceneVariants}
-            initial="initial"
-            animate="animate"
-            exit="exit"
-            transition={{ duration: 0.5, ease: "easeInOut" }}
-            className="flex flex-col items-center justify-center min-h-full px-6"
-          >
-            <motion.div
-              className="w-16 h-24 sm:w-20 sm:h-28 rounded-lg border-2 border-white/20 bg-white/5 mb-8"
-              animate={{
-                rotateY: [0, 180, 360],
-                scale: [1, 1.1, 1],
-              }}
-              transition={{
-                duration: 1.5,
-                repeat: Infinity,
-                ease: "easeInOut",
-              }}
-              style={{ transformStyle: "preserve-3d" }}
-            />
-            <motion.p
-              className="text-xl text-zinc-300 text-center"
-              animate={{ opacity: [0.5, 1, 0.5] }}
-              transition={{ duration: 2, repeat: Infinity }}
-            >
-              正在与宇宙建立连接...
-            </motion.p>
-          </motion.div>
-        )}
-
-        {gameState.scene === "drawing" && (
-          <motion.div
-            key="drawing"
-            variants={sceneVariants}
-            initial="initial"
-            animate="animate"
-            exit="exit"
-            transition={{ duration: 0.5, ease: "easeInOut" }}
-            className="flex flex-col items-center justify-center min-h-full px-6 py-20"
-          >
-            <h2
-              className="text-2xl sm:text-3xl font-bold text-white mb-2"
-              style={{ fontFamily: "var(--font-playfair), serif" }}
-            >
-              抽取塔罗牌
-            </h2>
-            <p className="text-zinc-400 mb-10 text-center">
-              点击牌背逐张翻开，共需翻开 {getSpreadCardCount(gameState.spreadType)} 张牌
-            </p>
-            <div className="flex flex-wrap justify-center gap-4 max-w-4xl">
-              {Array.from({ length: getSpreadCardCount(gameState.spreadType) }).map((_, i) => {
-                const drawn = gameState.drawnCards[i];
-                return (
-                  <motion.div
-                    key={i}
-                    onClick={() => !drawn && drawCard(i)}
-                    className={`relative w-24 h-36 sm:w-32 sm:h-48 rounded-xl border border-white/10 flex items-center justify-center cursor-pointer ${
-                      !drawn ? "hover:border-white/30" : ""
-                    }`}
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: i * 0.1 }}
-                    whileHover={!drawn ? { scale: 1.05, y: -4 } : {}}
-                    whileTap={!drawn ? { scale: 0.95 } : {}}
-                  >
-                    <AnimatePresence mode="wait">
-                      {!drawn ? (
-                        <motion.div
-                          key="back"
-                          className="absolute inset-0 rounded-xl bg-[#1a1a2e] border border-white/10 flex items-center justify-center"
-                          initial={{ opacity: 0, rotateY: 90 }}
-                          animate={{ opacity: 1, rotateY: 0 }}
-                          exit={{ opacity: 0, rotateY: -90 }}
-                          transition={{ duration: 0.4 }}
-                        >
-                          <span className="text-3xl text-white/20">?</span>
-                        </motion.div>
-                      ) : (
-                        <motion.div
-                          key="front"
-                          className="absolute inset-0 rounded-xl bg-white/10 border border-white/20 flex flex-col items-center justify-center p-2"
-                          initial={{ opacity: 0, rotateY: 90 }}
-                          animate={{ opacity: 1, rotateY: 0 }}
-                          exit={{ opacity: 0, rotateY: -90 }}
-                          transition={{ duration: 0.4 }}
-                          style={{ transformStyle: "preserve-3d" }}
-                        >
-                          <span className="text-xs text-zinc-400 mb-1">{drawn.positionLabel}</span>
-                          <span className="text-sm text-white text-center font-medium">{drawn.card.name}</span>
-                          {drawn.isReversed && (
-                            <span className="text-xs text-zinc-500 mt-1">逆位</span>
-                          )}
-                        </motion.div>
-                      )}
-                    </AnimatePresence>
-                  </motion.div>
-                );
-              })}
-            </div>
-            <p className="mt-8 text-zinc-500 text-sm">
-              已翻开 {gameState.drawnCards.length} / {getSpreadCardCount(gameState.spreadType)} 张
-            </p>
-          </motion.div>
-        )}
-
-        {gameState.scene === "reading" && (
-          <motion.div
-            key="reading"
-            variants={sceneVariants}
-            initial="initial"
-            animate="animate"
-            exit="exit"
-            transition={{ duration: 0.5, ease: "easeInOut" }}
-            className="flex flex-col items-center min-h-full px-6 py-20 max-w-4xl mx-auto w-full"
-          >
-            <h2
-              className="text-2xl sm:text-3xl font-bold text-white mb-2"
-              style={{ fontFamily: "var(--font-playfair), serif" }}
-            >
-              塔罗解读
-            </h2>
-            <p className="text-zinc-400 mb-8 text-center">
-              点击单张牌查看详细解读
-            </p>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 w-full mb-8">
-              {gameState.drawnCards.map((drawn, i) => (
-                <motion.button
-                  key={i}
-                  onClick={() => selectCard(gameState.selectedCardIndex === i ? null : i)}
-                  className={`p-4 rounded-xl border text-left transition-colors ${
-                    gameState.selectedCardIndex === i
-                      ? "border-white/30 bg-white/10"
-                      : "border-white/10 bg-white/5 hover:bg-white/10"
-                  }`}
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: i * 0.1 }}
-                  whileHover={{ scale: 1.02 }}
-                >
-                  <span className="text-xs text-zinc-500 block mb-1">{drawn.positionLabel}</span>
-                  <span className="text-lg text-white font-medium" style={{ fontFamily: "var(--font-playfair), serif" }}>
-                    {drawn.card.name}
-                  </span>
-                  {drawn.isReversed && (
-                    <span className="text-xs text-zinc-400 block mt-1">逆位</span>
-                  )}
-                </motion.button>
-              ))}
-            </div>
-
-            <AnimatePresence mode="wait">
-              {gameState.selectedCardIndex !== null && gameState.drawnCards[gameState.selectedCardIndex] && (
-                <motion.div
-                  key={gameState.selectedCardIndex}
-                  initial={{ opacity: 0, height: 0 }}
-                  animate={{ opacity: 1, height: "auto" }}
-                  exit={{ opacity: 0, height: 0 }}
-                  transition={{ duration: 0.4 }}
-                  className="w-full p-6 rounded-2xl border border-white/10 bg-white/5 backdrop-blur-sm overflow-hidden"
-                >
-                  <h3 className="text-xl font-bold text-white mb-4" style={{ fontFamily: "var(--font-playfair), serif" }}>
-                    {gameState.drawnCards[gameState.selectedCardIndex].card.name}
-                    {gameState.drawnCards[gameState.selectedCardIndex].isReversed ? "（逆位）" : "（正位）"}
-                  </h3>
-                  <p className="text-zinc-300 leading-relaxed">
-                    {gameState.drawnCards[gameState.selectedCardIndex].isReversed
-                      ? gameState.drawnCards[gameState.selectedCardIndex].card.reversed
-                      : gameState.drawnCards[gameState.selectedCardIndex].card.upright}
-                  </p>
-                  <p className="text-zinc-400 mt-4 text-sm leading-relaxed">
-                    {gameState.drawnCards[gameState.selectedCardIndex].isReversed
-                      ? gameState.drawnCards[gameState.selectedCardIndex].card.fortuneTellerText.reversed
-                      : gameState.drawnCards[gameState.selectedCardIndex].card.fortuneTellerText.upright}
-                  </p>
-                </motion.div>
-              )}
-            </AnimatePresence>
-
-            <motion.button
-              onClick={resetGame}
-              className="mt-10 px-6 py-3 rounded-full border border-white/20 text-white hover:bg-white/10 transition-colors"
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-            >
-              再次占卜
-            </motion.button>
-          </motion.div>
-        )}
-      </AnimatePresence>
+      {/* FortuneTeller overlay — fixed at bottom */}
+      <FortuneTeller
+        drawnCards={gameState.drawnCards}
+        spreadType={gameState.spreadType}
+        isVisible={currentScene === "reading"}
+      />
     </div>
   );
 }
